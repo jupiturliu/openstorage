@@ -1,6 +1,9 @@
 TAGS := daemon btrfs_noversion
-PKGS := $(shell go list ./... | grep -v 'github.com/libopenstorage/openstorage/vendor')
 PROTOS := proto/openstorage/openstorage.proto proto/openstorage/docker/openstorage_docker.proto
+
+ifndef PKGS
+PKGS := $(shell go list ./... | grep -v 'github.com/libopenstorage/openstorage/vendor')
+endif
 
 ifeq ($(BUILD_TYPE),debug)
 BUILDFLAGS := -gcflags "-N -l"

@@ -23,11 +23,12 @@ var _ = math.Inf
 type FSType int32
 
 const (
-	FSType_FS_TYPE_NONE FSType = 0
-	FSType_FS_TYPE_EXT4 FSType = 1
-	FSType_FS_TYPE_XFS  FSType = 2
-	FSType_FS_TYPE_ZFS  FSType = 3
-	FSType_FS_TYPE_NFS  FSType = 4
+	FSType_FS_TYPE_NONE  FSType = 0
+	FSType_FS_TYPE_EXT4  FSType = 1
+	FSType_FS_TYPE_XFS   FSType = 2
+	FSType_FS_TYPE_ZFS   FSType = 3
+	FSType_FS_TYPE_NFS   FSType = 4
+	FSType_FS_TYPE_BTRFS FSType = 5
 )
 
 var FSType_name = map[int32]string{
@@ -36,13 +37,15 @@ var FSType_name = map[int32]string{
 	2: "FS_TYPE_XFS",
 	3: "FS_TYPE_ZFS",
 	4: "FS_TYPE_NFS",
+	5: "FS_TYPE_BTRFS",
 }
 var FSType_value = map[string]int32{
-	"FS_TYPE_NONE": 0,
-	"FS_TYPE_EXT4": 1,
-	"FS_TYPE_XFS":  2,
-	"FS_TYPE_ZFS":  3,
-	"FS_TYPE_NFS":  4,
+	"FS_TYPE_NONE":  0,
+	"FS_TYPE_EXT4":  1,
+	"FS_TYPE_XFS":   2,
+	"FS_TYPE_ZFS":   3,
+	"FS_TYPE_NFS":   4,
+	"FS_TYPE_BTRFS": 5,
 }
 
 func (x FSType) String() string {

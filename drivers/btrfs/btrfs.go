@@ -17,6 +17,7 @@ import (
 
 	"github.com/libopenstorage/openstorage/api"
 	"github.com/libopenstorage/openstorage/pkg/chaos"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 	"github.com/libopenstorage/openstorage/volume"
 )
 
@@ -67,25 +68,27 @@ func (d *driver) Type() volume.DriverType {
 }
 
 // Create a new subvolume. The volume spec is not taken into account.
-func (d *driver) Create(locator api.VolumeLocator,
-	source *api.Source,
-	spec *api.VolumeSpec) (api.VolumeID, error) {
+func (d *driver) Create(
+	locator *openstorage.VolumeLocator,
+	source *openstorage.VolumeSource,
+	spec *openstorage.VolumeSpec,
+) (string, error) {
 
-	if spec.Format != "btrfs" && spec.Format != "" {
+	if spec.FsType != openstorage.FSType_FS_TYPE_BTRFS && spec.FsType != openstorage.FSType_FS_TYPE_NONE {
 		return api.BadVolumeID, fmt.Errorf("Filesystem format (%v) must be %v",
-			spec.Format, "btrfs")
+			spec.FsType, "btrfs")
 	}
 
 	volumeID := uuid.New()
 
 	v := &api.Volume{
-		ID:       api.VolumeID(volumeID),
+		ID:       volumeID,
 		Locator:  locator,
 		Ctime:    time.Now(),
 		Spec:     spec,
 		Source:   source,
 		LastScan: time.Now(),
-		Format:   "btrfs",
+		Format:   openstorage.FSType_FS_TYPE_BTRFS,
 		State:    api.VolumeAvailable,
 		Status:   api.Up,
 	}
@@ -106,7 +109,7 @@ func (d *driver) Create(locator api.VolumeLocator,
 }
 
 // Delete subvolume
-func (d *driver) Delete(volumeID api.VolumeID) error {
+func (d *driver) Delete(volumeID string) error {
 	err := d.DeleteVol(volumeID)
 	if err != nil {
 		log.Println(err)
@@ -115,19 +118,20 @@ func (d *driver) Delete(volumeID api.VolumeID) error {
 
 	chaos.Now(koStrayDelete)
 	if err == nil {
-		err = d.btrfs.Remove(string(volumeID))
+		err = d.btrfs.Remove(volumeID)
 	}
 	return err
 }
 
 // Mount bind mount btrfs subvolume
-func (d *driver) Mount(volumeID api.VolumeID, mountpath string) error {
+func (d *driver) Mount(volumeID string, mountpath string) error {
 	v, err := d.GetVol(volumeID)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
-	err = syscall.Mount(v.DevicePath, mountpath, string(v.Format), syscall.MS_BIND, "")
+	// TODO(pedge): format simple string could result in "none"
+	err = syscall.Mount(v.DevicePath, mountpath, v.Format.SimpleString(), syscall.MS_BIND, "")
 	if err != nil {
 		return fmt.Errorf("Failed to mount %v at %v: %v", v.DevicePath, mountpath, err)
 	}
@@ -139,7 +143,7 @@ func (d *driver) Mount(volumeID api.VolumeID, mountpath string) error {
 }
 
 // Unmount btrfs subvolume
-func (d *driver) Unmount(volumeID api.VolumeID, mountpath string) error {
+func (d *driver) Unmount(volumeID string, mountpath string) error {
 	v, err := d.GetVol(volumeID)
 	if err != nil {
 		return err
@@ -157,8 +161,8 @@ func (d *driver) Unmount(volumeID api.VolumeID, mountpath string) error {
 }
 
 // Snapshot create new subvolume from volume
-func (d *driver) Snapshot(volumeID api.VolumeID, readonly bool, locator api.VolumeLocator) (api.VolumeID, error) {
-	vols, err := d.Inspect([]api.VolumeID{volumeID})
+func (d *driver) Snapshot(volumeID string, readonly bool, locator *openstorage.VolumeLocator) (string, error) {
+	vols, err := d.Inspect([]string{volumeID})
 	if err != nil {
 		return api.BadVolumeID, err
 	}
@@ -166,8 +170,8 @@ func (d *driver) Snapshot(volumeID api.VolumeID, readonly bool, locator api.Volu
 		return api.BadVolumeID, fmt.Errorf("Failed to inspect %v len %v", volumeID, len(vols))
 	}
 	snapID := uuid.New()
-	vols[0].ID = api.VolumeID(snapID)
-	vols[0].Source = &api.Source{Parent: volumeID}
+	vols[0].ID = string(snapID)
+	vols[0].Source = &openstorage.VolumeSource{ParentVolumeId: volumeID}
 	vols[0].Locator = locator
 	vols[0].Ctime = time.Now()
 
@@ -176,7 +180,7 @@ func (d *driver) Snapshot(volumeID api.VolumeID, readonly bool, locator api.Volu
 		return api.BadVolumeID, err
 	}
 	chaos.Now(koStrayCreate)
-	err = d.btrfs.Create(snapID, string(volumeID))
+	err = d.btrfs.Create(snapID, volumeID)
 	if err != nil {
 		return api.BadVolumeID, err
 	}
@@ -184,12 +188,12 @@ func (d *driver) Snapshot(volumeID api.VolumeID, readonly bool, locator api.Volu
 }
 
 // Stats for specified volume.
-func (d *driver) Stats(volumeID api.VolumeID) (api.Stats, error) {
+func (d *driver) Stats(volumeID string) (api.Stats, error) {
 	return api.Stats{}, nil
 }
 
 // Alerts on this volume.
-func (d *driver) Alerts(volumeID api.VolumeID) (api.Alerts, error) {
+func (d *driver) Alerts(volumeID string) (api.Alerts, error) {
 	return api.Alerts{}, nil
 }
 
