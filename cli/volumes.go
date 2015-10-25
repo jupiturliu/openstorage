@@ -81,24 +81,22 @@ func (v *volDriver) volumeCreate(context *cli.Context) {
 		Name:   context.Args()[0],
 		Labels: labels,
 	}
-	// TODO(pedge): write common function in proto package
-	fsType, ok := openstorage.FSType_value[context.String("fs")]
-	if !ok {
-		cmdError(context, fn, fmt.Errorf("no openstorage.FSType for %s", context.String("fs")))
+	fsType, err := openstorage.FSTypeSimpleValueOf(context.String("fs"))
+	if err != nil {
+		cmdError(context, fn, err)
 		return
 	}
-	// TODO(pedge): write common function in proto package
-	cos, ok := openstorage.COS_value[context.String("cos")]
-	if !ok {
-		cmdError(context, fn, fmt.Errorf("no openstorage.COS for %s", context.String("cos")))
+	cos, err := openstorage.COSSimpleValueOf(context.String("cos"))
+	if err != nil {
+		cmdError(context, fn, err)
 		return
 	}
 	spec := &openstorage.VolumeSpec{
 		SizeBytes:           uint64(VolumeSzUnits(context.Int("s")) * MiB),
-		FsType:              openstorage.FSType(fsType),
+		FsType:              fsType,
 		BlockSize:           int64(context.Int("b") * 1024),
 		HaLevel:             int32(context.Int("r")),
-		Cos:                 openstorage.COS(cos),
+		Cos:                 cos,
 		SnapshotIntervalMin: uint32(context.Int("si")),
 	}
 	source := &openstorage.VolumeSource{

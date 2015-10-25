@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/libopenstorage/openstorage/proto/openstorage"
@@ -103,13 +102,11 @@ func toOpenstorageVolumeSpec(request *openstoragedocker.VolumeCreateRequest) (*o
 	if err != nil {
 		return nil, err
 	}
-	// TODO(pedge): should we look up the value based on that
-	// actual string, or strings.TrimSuffix(strings.ToLower(fsTypeObk), "fs_type_")?
-	fsType, ok := openstorage.FSType_value[fsTypeObj]
-	if !ok {
-		return nil, fmt.Errorf("No openstorage.FSType value %s", fsTypeObj)
+	fsType, err := openstorage.FSTypeSimpleValueOf(fsTypeObj)
+	if err != nil {
+		return nil, err
 	}
-	openstorageVolumeSpec.FsType = openstorage.FSType(fsType)
+	openstorageVolumeSpec.FsType = fsType
 	blockSize, err := opts.GetInt64("block_size")
 	if err != nil {
 		return nil, err
@@ -124,11 +121,11 @@ func toOpenstorageVolumeSpec(request *openstoragedocker.VolumeCreateRequest) (*o
 	if err != nil {
 		return nil, err
 	}
-	cos, ok := openstorage.COS_value[cosObj]
+	cos, err := openstorage.COSSimpleValueOf(cosObj)
 	if !ok {
-		return nil, fmt.Errorf("No openstorage.COS value %s", cosObj)
+		return nil, err
 	}
-	openstorageVolumeSpec.Cos = openstorage.COS(cos)
+	openstorageVolumeSpec.Cos = cos
 	deduplicate, err := opts.GetBool("deduplicate")
 	if err != nil {
 		return nil, err
