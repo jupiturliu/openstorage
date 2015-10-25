@@ -30,6 +30,10 @@ vendor:
 	godep save $(PKGS) github.com/docker/docker/pkg/chrootarchive
 	rm -rf Godeps
 
+proto:
+	go get -v go.pedge.io/tools/protoc-all
+	STRIP_PACKAGE_COMMENTS=1 protoc-all github.com/libopenstorage/openstorage
+
 build:
 	go build -tags "$(TAGS)" $(BUILDFLAGS) $(PKGS)
 
