@@ -2,25 +2,12 @@ package api
 
 import (
 	"time"
-)
 
-// VolumeID driver specific system wide unique volume identifier.
-type VolumeID string
+	"github.com/libopenstorage/openstorage/proto/openstorage"
+)
 
 // BadVolumeID invalid volume ID, usually accompanied by an error.
-const BadVolumeID = VolumeID("")
-
-// VolumeCos a number representing class of servcie.
-type VolumeCos int
-
-const (
-	// VolumeCosNone minmum level of CoS
-	VolumeCosNone = VolumeCos(0)
-	// VolumeCosMedium in-between level of Cos
-	VolumeCosMedium = VolumeCos(5)
-	// VolumeCosMax maximum level of CoS
-	VolumeCosMax = VolumeCos(9)
-)
+const BadVolumeID = ""
 
 // VolumeStatus a health status.
 type VolumeStatus string
@@ -61,63 +48,6 @@ const (
 // VolumeStateAny a filter that selects all volumes
 const VolumeStateAny = VolumePending | VolumeAvailable | VolumeAttached | VolumeDetaching | VolumeDetached | VolumeError | VolumeDeleted
 
-// Labels a name-value map
-type Labels map[string]string
-
-// VolumeLocator is a structure that is attached to a volume and is used to
-// carry opaque metadata.
-type VolumeLocator struct {
-	// Name user friendly identifier
-	Name string
-	// VolumeLabels set of name-value pairs that acts as search filters.
-	VolumeLabels Labels
-}
-
-// CreateOptions are passed in with a CreateRequest
-type Source struct {
-	// Parent if specified will create a clone of Parent.
-	Parent VolumeID
-	// Seed will seed the volume from the specified URI. Any
-	// additional config for the source comes from the labels in the spec.
-	Seed string
-}
-
-// Filesystem supported filesystems
-type Filesystem string
-
-const (
-	FsNone Filesystem = "none"
-	FsExt4 Filesystem = "ext4"
-	FsXfs  Filesystem = "xfs"
-	FsZfs  Filesystem = "zfs"
-	FsNfs  Filesystem = "nfs"
-)
-
-// VolumeSpec has the properties needed to create a volume.
-type VolumeSpec struct {
-	// Ephemeral storage
-	Ephemeral bool
-	// Thin provisioned volume size in bytes
-	Size uint64
-	// Format disk with this FileSystem
-	Format Filesystem
-	// BlockSize for file system
-	BlockSize int
-	// HA Level specifies the number of nodes that are
-	// allowed to fail, and yet data is availabel.
-	// A value of 0 implies that data is not erasure coded,
-	// a failure of a node will lead to data loss.
-	HALevel int
-	// This disk's CoS
-	Cos VolumeCos
-	// Perform dedupe on this disk
-	Dedupe bool
-	// SnapshotInterval in minutes, set to 0 to disable Snapshots
-	SnapshotInterval int
-	// Volume configuration labels
-	ConfigLabels Labels
-}
-
 // MachineID is a node instance identifier for clustered systems.
 type MachineID string
 
@@ -126,23 +56,23 @@ const MachineNone MachineID = ""
 // Volume represents a live, created volume.
 type Volume struct {
 	// ID Self referential VolumeID
-	ID VolumeID
+	ID string
 	// Source
-	Source *Source
+	Source *openstorage.VolumeSource
 	// Readonly
 	Readonly bool
 	// Locator User specified locator
-	Locator VolumeLocator
+	Locator *openstorage.VolumeLocator
 	// Ctime Volume creation time
 	Ctime time.Time
 	// Spec User specified VolumeSpec
-	Spec *VolumeSpec
+	Spec *openstorage.VolumeSpec
 	// Usage Volume usage
 	Usage uint64
 	// LastScan time when an integrity check for run
 	LastScan time.Time
 	// Format Filesystem type if any
-	Format Filesystem
+	Format openstorage.FSType
 	// Status see VolumeStatus
 	Status VolumeStatus
 	// State see VolumeState

@@ -84,10 +84,3 @@ func StartServerAPI(name string, port int, restBase string) error {
 	routes := append(volApi.Routes(), clusterApi.Routes()...)
 	return startServer(name, restBase, port, routes)
 }
-
-// StartPluginAPI starts a REST server to receive volume commands from the
-// Linux container engine.
-func StartPluginAPI(name string, pluginBase string) error {
-	rest := newVolumePlugin(name)
-	return startServer(name, pluginBase, 0, rest.Routes())
-}

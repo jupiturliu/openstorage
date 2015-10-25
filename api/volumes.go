@@ -1,5 +1,7 @@
 package api
 
+import "github.com/libopenstorage/openstorage/proto/openstorage"
+
 // OptionKey specifies a set of recognized query params
 type OptionKey string
 
@@ -13,23 +15,6 @@ const (
 	// OptConfigLabel query parameter used to lookup volume by set of labels.
 	OptConfigLabel = OptionKey("ConfigLabel")
 )
-
-// VolumeCreateRequest is the body of create REST request
-type VolumeCreateRequest struct {
-	// Locator user specified volume name and labels.
-	Locator VolumeLocator `json:"locator"`
-	// Source to create volume
-	Source *Source `json:"source,omitempty"`
-	// Spec is the storage spec for the volume
-	Spec *VolumeSpec `json:"spec,omitempty"`
-}
-
-// VolumeCreateResponse is the body of create REST response
-type VolumeCreateResponse struct {
-	// ID of the newly created volume
-	ID VolumeID `json:"id"`
-	VolumeResponse
-}
 
 // VolumeActionParam desired action on volume
 type VolumeActionParam int
@@ -70,14 +55,14 @@ type VolumeResponse struct {
 
 // SnapCreateRequest request body to create a snap.
 type SnapCreateRequest struct {
-	ID       VolumeID      `json:"id"`
-	Locator  VolumeLocator `json:"locator"`
-	Readonly bool          `json:"readonly"`
+	ID       string                     `json:"id"`
+	Locator  *openstorage.VolumeLocator `json:"locator"`
+	Readonly bool                       `json:"readonly"`
 }
 
 // SnapCreateResponse response body to SnapCreateRequest
 type SnapCreateResponse struct {
-	VolumeCreateResponse
+	*openstorage.VolumeCreateResponse
 }
 
 // ResponseStatusNew create VolumeResponse from error

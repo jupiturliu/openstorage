@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/libopenstorage/openstorage/api"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 )
 
 var (
@@ -54,33 +55,35 @@ type ProtoDriver interface {
 
 	// Create a new Vol for the specific volume spec.
 	// It returns a system generated VolumeID that uniquely identifies the volume
-	Create(locator api.VolumeLocator,
-		Source *api.Source,
-		spec *api.VolumeSpec) (api.VolumeID, error)
+	Create(
+		locator *openstorage.VolumeLocator,
+		Source *openstorage.VolumeSource,
+		spec *openstorage.VolumeSpec,
+	) (string, error)
 
 	// Delete volume.
 	// Errors ErrEnoEnt, ErrVolHasSnaps may be returned.
-	Delete(volumeID api.VolumeID) error
+	Delete(volumeID string) error
 
 	// Mount volume at specified path
 	// Errors ErrEnoEnt, ErrVolDetached may be returned.
-	Mount(volumeID api.VolumeID, mountpath string) error
+	Mount(volumeID string, mountpath string) error
 
 	// Unmount volume at specified path
 	// Errors ErrEnoEnt, ErrVolDetached may be returned.
-	Unmount(volumeID api.VolumeID, mountpath string) error
+	Unmount(volumeID string, mountpath string) error
 
 	// Snapshot create volume snapshot.
 	// Errors ErrEnoEnt may be returned
-	Snapshot(volumeID api.VolumeID, readonly bool, locator api.VolumeLocator) (api.VolumeID, error)
+	Snapshot(volumeID string, readonly bool, locator *openstorage.VolumeLocator) (string, error)
 
 	// Stats for specified volume.
 	// Errors ErrEnoEnt may be returned
-	Stats(volumeID api.VolumeID) (api.Stats, error)
+	Stats(volumeID string) (api.Stats, error)
 
 	// Alerts on this volume.
 	// Errors ErrEnoEnt may be returned
-	Alerts(volumeID api.VolumeID) (api.Alerts, error)
+	Alerts(volumeID string) (api.Alerts, error)
 
 	// Status returns a set of key-value pairs which give low
 	// level diagnostic status about this driver.
@@ -94,14 +97,14 @@ type ProtoDriver interface {
 type Enumerator interface {
 	// Inspect specified volumes.
 	// Returns slice of volumes that were found.
-	Inspect(volumeIDs []api.VolumeID) ([]api.Volume, error)
+	Inspect(volumeIDs []string) ([]api.Volume, error)
 
 	// Enumerate volumes that map to the volumeLocator. Locator fields may be regexp.
 	// If locator fields are left blank, this will return all volumes.
-	Enumerate(locator api.VolumeLocator, labels api.Labels) ([]api.Volume, error)
+	Enumerate(locator *openstorage.VolumeLocator, labels map[string]string) ([]api.Volume, error)
 
 	// Enumerate snaps for specified volumes
-	SnapEnumerate(volID []api.VolumeID, snapLabels api.Labels) ([]api.Volume, error)
+	SnapEnumerate(volID []string, snapLabels map[string]string) ([]api.Volume, error)
 }
 
 // BlockDriver needs to be implemented by block volume drivers.  Filesystem volume
@@ -110,11 +113,11 @@ type BlockDriver interface {
 	// Attach map device to the host.
 	// On success the devicePath specifies location where the device is exported
 	// Errors ErrEnoEnt, ErrVolAttached may be returned.
-	Attach(volumeID api.VolumeID) (string, error)
+	Attach(volumeID string) (string, error)
 
 	// Detach device from the host.
 	// Errors ErrEnoEnt, ErrVolDetached may be returned.
-	Detach(volumeID api.VolumeID) error
+	Detach(volumeID string) error
 }
 
 func Shutdown() {

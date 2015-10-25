@@ -87,12 +87,6 @@ func start(c *cli.Context) {
 			fmt.Println("Unable to start volume driver: ", err)
 			return
 		}
-
-		err = apiserver.StartPluginAPI(d, config.PluginAPIBase)
-		if err != nil {
-			fmt.Println("Unable to start volume plugin: ", err)
-			return
-		}
 	}
 
 	if cm != nil {

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 	"github.com/portworx/systemutils"
 )
 
@@ -18,8 +19,8 @@ const (
 
 type VolumeInfo struct {
 	Path     string
-	Storage  *VolumeSpec
-	VolumeID VolumeID
+	Storage  *openstorage.VolumeSpec
+	VolumeID string
 }
 
 // Node describes the state of a node.

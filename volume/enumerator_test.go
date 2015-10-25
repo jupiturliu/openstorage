@@ -10,26 +10,27 @@ import (
 	"github.com/portworx/kvdb/mem"
 
 	"github.com/libopenstorage/openstorage/api"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 )
 
 var (
 	e        *DefaultEnumerator
 	volName  = "TestVolume"
 	snapName = "SnapVolume"
-	labels   = api.Labels{"Foo": "DEADBEEF"}
+	labels   = map[string]string{"Foo": "DEADBEEF"}
 )
 
 func TestInspect(t *testing.T) {
-	id := api.VolumeID(volName)
+	id := volName
 	vol := api.Volume{
 		ID:      id,
-		Locator: api.VolumeLocator{Name: volName, VolumeLabels: labels},
+		Locator: &openstorage.VolumeLocator{Name: volName, Labels: labels},
 		State:   api.VolumeAvailable,
-		Spec:    &api.VolumeSpec{},
+		Spec:    &openstorage.VolumeSpec{},
 	}
 	err := e.CreateVol(&vol)
 	assert.NoError(t, err, "Failed in CreateVol")
-	vols, err := e.Inspect([]api.VolumeID{id})
+	vols, err := e.Inspect([]string{id})
 	assert.NoError(t, err, "Failed in Inspect")
 	assert.Equal(t, len(vols), 1, "Number of volumes returned in inspect should be 1")
 	if len(vols) == 1 {
@@ -37,32 +38,32 @@ func TestInspect(t *testing.T) {
 	}
 	err = e.DeleteVol(id)
 	assert.NoError(t, err, "Failed in Delete")
-	vols, err = e.Inspect([]api.VolumeID{id})
+	vols, err = e.Inspect([]string{id})
 	assert.NotNil(t, vols, "Inspect returned nil vols")
 	assert.Equal(t, len(vols), 0, "Number of volumes returned in inspect should be 0")
 }
 
 func TestEnumerate(t *testing.T) {
-	id := api.VolumeID(volName)
+	id := volName
 	vol := api.Volume{
 		ID:      id,
-		Locator: api.VolumeLocator{Name: volName, VolumeLabels: labels},
+		Locator: &openstorage.VolumeLocator{Name: volName, Labels: labels},
 		State:   api.VolumeAvailable,
-		Spec:    &api.VolumeSpec{},
+		Spec:    &openstorage.VolumeSpec{},
 	}
 	err := e.CreateVol(&vol)
 	assert.NoError(t, err, "Failed in CreateVol")
-	vols, err := e.Enumerate(api.VolumeLocator{}, nil)
+	vols, err := e.Enumerate(&openstorage.VolumeLocator{}, nil)
 	assert.NoError(t, err, "Failed in Enumerate")
 	assert.Equal(t, 1, len(vols), "Number of volumes returned in enumerate should be 1")
 
-	vols, err = e.Enumerate(api.VolumeLocator{Name: volName}, nil)
+	vols, err = e.Enumerate(&openstorage.VolumeLocator{Name: volName}, nil)
 	assert.NoError(t, err, "Failed in Enumerate")
 	assert.Equal(t, 1, len(vols), "Number of volumes returned in enumerate should be 1")
 	if len(vols) == 1 {
 		assert.Equal(t, vols[0].ID, vol.ID, "Invalid volume returned in Enumerate")
 	}
-	vols, err = e.Enumerate(api.VolumeLocator{VolumeLabels: labels}, nil)
+	vols, err = e.Enumerate(&openstorage.VolumeLocator{Labels: labels}, nil)
 	assert.NoError(t, err, "Failed in Enumerate")
 	assert.Equal(t, len(vols), 1, "Number of volumes returned in enumerate should be 1")
 	if len(vols) == 1 {
@@ -70,38 +71,38 @@ func TestEnumerate(t *testing.T) {
 	}
 	err = e.DeleteVol(id)
 	assert.NoError(t, err, "Failed in Delete")
-	vols, err = e.Enumerate(api.VolumeLocator{Name: volName}, nil)
+	vols, err = e.Enumerate(&openstorage.VolumeLocator{Name: volName}, nil)
 	assert.Equal(t, len(vols), 0, "Number of volumes returned in enumerate should be 0")
 }
 
 func TestSnapEnumerate(t *testing.T) {
-	snapID := api.VolumeID(snapName)
-	id := api.VolumeID(volName)
+	snapID := snapName
+	id := volName
 	vol := api.Volume{
 		ID:      id,
-		Locator: api.VolumeLocator{Name: volName, VolumeLabels: labels},
+		Locator: &openstorage.VolumeLocator{Name: volName, Labels: labels},
 		State:   api.VolumeAvailable,
-		Spec:    &api.VolumeSpec{},
+		Spec:    &openstorage.VolumeSpec{},
 	}
 	err := e.CreateVol(&vol)
 	assert.NoError(t, err, "Failed in CreateVol")
 	snap := api.Volume{
 		ID:      snapID,
-		Locator: api.VolumeLocator{Name: volName, VolumeLabels: labels},
+		Locator: &openstorage.VolumeLocator{Name: volName, Labels: labels},
 		State:   api.VolumeAvailable,
-		Spec:    &api.VolumeSpec{},
-		Source:  &api.Source{Parent: id},
+		Spec:    &openstorage.VolumeSpec{},
+		Source:  &openstorage.VolumeSource{ParentVolumeId: id},
 	}
 	err = e.CreateVol(&snap)
 	assert.NoError(t, err, "Failed in CreateSnap")
 
-	snaps, err := e.SnapEnumerate([]api.VolumeID{id}, nil)
+	snaps, err := e.SnapEnumerate([]string{id}, nil)
 	assert.NoError(t, err, "Failed in Enumerate")
 	assert.Equal(t, len(snaps), 1, "Number of snaps returned in enumerate should be 1")
 	if len(snaps) == 1 {
 		assert.Equal(t, snaps[0].ID, snap.ID, "Invalid snap returned in Enumerate")
 	}
-	snaps, err = e.SnapEnumerate([]api.VolumeID{id}, labels)
+	snaps, err = e.SnapEnumerate([]string{id}, labels)
 	assert.NoError(t, err, "Failed in Enumerate")
 	assert.Equal(t, len(snaps), 1, "Number of snaps returned in enumerate should be 1")
 	if len(snaps) == 1 {
@@ -124,7 +125,7 @@ func TestSnapEnumerate(t *testing.T) {
 
 	err = e.DeleteVol(snapID)
 	assert.NoError(t, err, "Failed in Delete")
-	snaps, err = e.SnapEnumerate([]api.VolumeID{id}, labels)
+	snaps, err = e.SnapEnumerate([]string{id}, labels)
 	assert.NotNil(t, snaps, "Inspect returned nil snaps")
 	assert.Equal(t, len(snaps), 0, "Number of snaps returned in enumerate should be 0")
 

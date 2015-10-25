@@ -7,6 +7,8 @@ import "google/api/annotations.proto";
 option java_multiple_files = true;
 option java_package = "com.openstorage";
 
+// TODO(pedge): a lot of the code relies on this being a proper filesystem type,
+// need conversion methods
 enum FSType {
   FS_TYPE_NONE = 0;
   FS_TYPE_EXT4 = 1;
