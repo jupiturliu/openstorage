@@ -30,6 +30,7 @@ const (
 	FSType_FS_TYPE_NFS   FSType = 4
 	FSType_FS_TYPE_BTRFS FSType = 5
 	FSType_FS_TYPE_FUSE  FSType = 6
+	FSType_FS_TYPE_VFS   FSType = 7
 )
 
 var FSType_name = map[int32]string{
@@ -40,6 +41,7 @@ var FSType_name = map[int32]string{
 	4: "FS_TYPE_NFS",
 	5: "FS_TYPE_BTRFS",
 	6: "FS_TYPE_FUSE",
+	7: "FS_TYPE_VFS",
 }
 var FSType_value = map[string]int32{
 	"FS_TYPE_NONE":  0,
@@ -49,6 +51,7 @@ var FSType_value = map[string]int32{
 	"FS_TYPE_NFS":   4,
 	"FS_TYPE_BTRFS": 5,
 	"FS_TYPE_FUSE":  6,
+	"FS_TYPE_VFS":   7,
 }
 
 func (x FSType) String() string {

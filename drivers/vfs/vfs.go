@@ -10,6 +10,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/libopenstorage/openstorage/api"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 	"github.com/libopenstorage/openstorage/volume"
 	"github.com/pborman/uuid"
 	"github.com/portworx/kvdb"
@@ -41,28 +42,28 @@ func (d *driver) Type() volume.DriverType {
 	return Type
 }
 
-func (d *driver) Create(locator api.VolumeLocator, source *api.Source, spec *api.VolumeSpec) (api.VolumeID, error) {
+func (d *driver) Create(locator *openstorage.VolumeLocator, source *openstorage.VolumeSource, spec *openstorage.VolumeSpec) (string, error) {
 
 	volumeID := uuid.New()
 	volumeID = strings.TrimSuffix(volumeID, "\n")
 
 	// Create a directory on the Local machine with this UUID.
-	err := os.MkdirAll(path.Join(volumeBase, string(volumeID)), 0744)
+	err := os.MkdirAll(path.Join(volumeBase, volumeID), 0744)
 	if err != nil {
 		log.Println(err)
 		return api.BadVolumeID, err
 	}
 
 	v := &api.Volume{
-		ID:         api.VolumeID(volumeID),
+		ID:         volumeID,
 		Locator:    locator,
 		Ctime:      time.Now(),
 		Spec:       spec,
 		LastScan:   time.Now(),
-		Format:     "vfs",
+		Format:     openstorage.FSType_FS_TYPE_VFS,
 		State:      api.VolumeAvailable,
 		Status:     api.Up,
-		DevicePath: path.Join(volumeBase, string(volumeID)),
+		DevicePath: path.Join(volumeBase, volumeID),
 	}
 
 	err = d.CreateVol(v)
@@ -75,7 +76,7 @@ func (d *driver) Create(locator api.VolumeLocator, source *api.Source, spec *api
 
 }
 
-func (d *driver) Delete(volumeID api.VolumeID) error {
+func (d *driver) Delete(volumeID string) error {
 
 	// Check if volume exists
 	_, err := d.GetVol(volumeID)
@@ -85,7 +86,7 @@ func (d *driver) Delete(volumeID api.VolumeID) error {
 	}
 
 	// Delete the directory
-	os.RemoveAll(path.Join(volumeBase, string(volumeID)))
+	os.RemoveAll(path.Join(volumeBase, volumeID))
 
 	err = d.DeleteVol(volumeID)
 	if err != nil {
@@ -99,7 +100,7 @@ func (d *driver) Delete(volumeID api.VolumeID) error {
 
 // Mount volume at specified path
 // Errors ErrEnoEnt, ErrVolDetached may be returned.
-func (d *driver) Mount(volumeID api.VolumeID, mountpath string) error {
+func (d *driver) Mount(volumeID string, mountpath string) error {
 
 	v, err := d.GetVol(volumeID)
 	if err != nil {
@@ -107,10 +108,11 @@ func (d *driver) Mount(volumeID api.VolumeID, mountpath string) error {
 		return err
 	}
 	syscall.Unmount(mountpath, 0)
-	err = syscall.Mount(path.Join(volumeBase, string(volumeID)), mountpath, string(v.Spec.Format), syscall.MS_BIND, "")
+	// TODO(pedge): fs type simple string could result in "none"
+	err = syscall.Mount(path.Join(volumeBase, volumeID), mountpath, v.Spec.FsType.SimpleString(), syscall.MS_BIND, "")
 	if err != nil {
 		log.Printf("Cannot mount %s at %s because %+v",
-			path.Join(volumeBase, string(volumeID)), mountpath, err)
+			path.Join(volumeBase, volumeID), mountpath, err)
 		return err
 	}
 
@@ -122,7 +124,7 @@ func (d *driver) Mount(volumeID api.VolumeID, mountpath string) error {
 
 // Unmount volume at specified path
 // Errors ErrEnoEnt, ErrVolDetached may be returned.
-func (d *driver) Unmount(volumeID api.VolumeID, mountpath string) error {
+func (d *driver) Unmount(volumeID string, mountpath string) error {
 	v, err := d.GetVol(volumeID)
 	if err != nil {
 		return err
@@ -141,12 +143,12 @@ func (d *driver) Unmount(volumeID api.VolumeID, mountpath string) error {
 }
 
 // Stats Not Supported.
-func (d *driver) Stats(volumeID api.VolumeID) (api.Stats, error) {
+func (d *driver) Stats(volumeID string) (api.Stats, error) {
 	return api.Stats{}, volume.ErrNotSupported
 }
 
 // Alerts Not Supported.
-func (d *driver) Alerts(volumeID api.VolumeID) (api.Alerts, error) {
+func (d *driver) Alerts(volumeID string) (api.Alerts, error) {
 	return api.Alerts{}, volume.ErrNotSupported
 }
 
