@@ -19,6 +19,7 @@ import (
 	"github.com/libopenstorage/openstorage/config"
 	"github.com/libopenstorage/openstorage/pkg/mount"
 	"github.com/libopenstorage/openstorage/pkg/seed"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 	"github.com/libopenstorage/openstorage/volume"
 )
 
@@ -149,7 +150,7 @@ func Init(params volume.DriverParams) (volume.VolumeDriver, error) {
 		// Mount the nfs server locally on a unique path.
 		syscall.Unmount(nfsMountPath, 0)
 		if server != "" {
-			err = syscall.Mount(src, nfsMountPath, "nfs", 0, "nolock,addr="+inst.nfsServer)
+			err = syscall.Mount(src, nfsMountPath, openstorage.FSType_FS_TYPE_NFS.SimpleString(), 0, "nolock,addr="+inst.nfsServer)
 		} else {
 			err = syscall.Mount(src, nfsMountPath, "", syscall.MS_BIND, "")
 		}
@@ -160,7 +161,7 @@ func Init(params volume.DriverParams) (volume.VolumeDriver, error) {
 	}
 
 	volumeInfo, err := inst.DefaultEnumerator.Enumerate(
-		api.VolumeLocator{},
+		&openstorage.VolumeLocator{},
 		nil)
 	if err == nil {
 		for _, info := range volumeInfo {
@@ -190,7 +191,7 @@ func (d *driver) Status() [][2]string {
 	return [][2]string{}
 }
 
-func (d *driver) Create(locator api.VolumeLocator, source *api.Source, spec *api.VolumeSpec) (api.VolumeID, error) {
+func (d *driver) Create(locator *openstorage.VolumeLocator, source *openstorage.VolumeSource, spec *openstorage.VolumeSpec) (string, error) {
 	volumeID := uuid.New()
 	volumeID = strings.TrimSuffix(volumeID, "\n")
 
@@ -202,46 +203,46 @@ func (d *driver) Create(locator api.VolumeLocator, source *api.Source, spec *api
 		return api.BadVolumeID, err
 	}
 	if source != nil {
-		if len(source.Seed) != 0 {
-			seed, err := seed.New(source.Seed, spec.ConfigLabels)
+		if len(source.SeedUri) != 0 {
+			seed, err := seed.New(source.SeedUri, spec.Labels)
 			if err != nil {
 				log.Warnf("Failed to initailize seed from %q : %v",
-					source.Seed, err)
+					source.SeedUri, err)
 				return api.BadVolumeID, err
 			}
 			err = seed.Load(path.Join(volPath, config.DataDir))
 			if err != nil {
 				log.Warnf("Failed to  seed from %q to %q: %v",
-					source.Seed, nfsMountPath, err)
+					source.SeedUri, nfsMountPath, err)
 				return api.BadVolumeID, err
 			}
 		}
 	}
 
-	f, err := os.Create(path.Join(nfsMountPath, string(volumeID)+nfsBlockFile))
+	f, err := os.Create(path.Join(nfsMountPath, volumeID+nfsBlockFile))
 	if err != nil {
 		log.Println(err)
 		return api.BadVolumeID, err
 	}
 	defer f.Close()
 
-	err = f.Truncate(int64(spec.Size))
+	err = f.Truncate(int64(spec.SizeBytes))
 	if err != nil {
 		log.Println(err)
 		return api.BadVolumeID, err
 	}
 
 	v := &api.Volume{
-		ID:         api.VolumeID(volumeID),
+		ID:         volumeID,
 		Source:     source,
 		Locator:    locator,
 		Ctime:      time.Now(),
 		Spec:       spec,
 		LastScan:   time.Now(),
-		Format:     "nfs",
+		Format:     openstorage.FSType_FS_TYPE_NFS,
 		State:      api.VolumeAvailable,
 		Status:     api.Up,
-		DevicePath: path.Join(nfsMountPath, string(volumeID)+nfsBlockFile),
+		DevicePath: path.Join(nfsMountPath, volumeID+nfsBlockFile),
 	}
 
 	err = d.CreateVol(v)
@@ -251,7 +252,7 @@ func (d *driver) Create(locator api.VolumeLocator, source *api.Source, spec *api
 	return v.ID, err
 }
 
-func (d *driver) Delete(volumeID api.VolumeID) error {
+func (d *driver) Delete(volumeID string) error {
 	v, err := d.GetVol(volumeID)
 	if err != nil {
 		log.Println(err)
@@ -262,7 +263,7 @@ func (d *driver) Delete(volumeID api.VolumeID) error {
 	os.Remove(v.DevicePath)
 
 	// Delete the directory on the nfs server.
-	os.RemoveAll(path.Join(nfsMountPath, string(volumeID)))
+	os.RemoveAll(path.Join(nfsMountPath, volumeID))
 
 	err = d.DeleteVol(volumeID)
 	if err != nil {
@@ -273,21 +274,22 @@ func (d *driver) Delete(volumeID api.VolumeID) error {
 	return nil
 }
 
-func (d *driver) Mount(volumeID api.VolumeID, mountpath string) error {
+func (d *driver) Mount(volumeID string, mountpath string) error {
 	v, err := d.GetVol(volumeID)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	srcPath := path.Join(":", d.nfsPath, string(volumeID))
+	srcPath := path.Join(":", d.nfsPath, volumeID)
 	mountExists, err := d.mounter.Exists(srcPath, mountpath)
 	if !mountExists {
 		syscall.Unmount(mountpath, 0)
-		err = syscall.Mount(path.Join(nfsMountPath, string(volumeID)), mountpath, string(v.Spec.Format), syscall.MS_BIND, "")
+		// TODO(pedge): fs type simple string could result in "none"
+		err = syscall.Mount(path.Join(nfsMountPath, volumeID), mountpath, v.Spec.FsType.SimpleString(), syscall.MS_BIND, "")
 		if err != nil {
 			log.Printf("Cannot mount %s at %s because %+v",
-				path.Join(nfsMountPath, string(volumeID)), mountpath, err)
+				path.Join(nfsMountPath, volumeID), mountpath, err)
 			return err
 		}
 	}
@@ -298,7 +300,7 @@ func (d *driver) Mount(volumeID api.VolumeID, mountpath string) error {
 	return err
 }
 
-func (d *driver) Unmount(volumeID api.VolumeID, mountpath string) error {
+func (d *driver) Unmount(volumeID string, mountpath string) error {
 	v, err := d.GetVol(volumeID)
 	if err != nil {
 		return err
@@ -315,21 +317,21 @@ func (d *driver) Unmount(volumeID api.VolumeID, mountpath string) error {
 	return err
 }
 
-func (d *driver) Snapshot(volumeID api.VolumeID, readonly bool, locator api.VolumeLocator) (api.VolumeID, error) {
-	volIDs := make([]api.VolumeID, 1)
+func (d *driver) Snapshot(volumeID string, readonly bool, locator *openstorage.VolumeLocator) (string, error) {
+	volIDs := make([]string, 1)
 	volIDs[0] = volumeID
 	vols, err := d.Inspect(volIDs)
 	if err != nil {
 		return api.BadVolumeID, nil
 	}
-	source := &api.Source{Parent: volumeID}
+	source := &openstorage.VolumeSource{ParentVolumeId: volumeID}
 	newVolumeID, err := d.Create(locator, source, vols[0].Spec)
 	if err != nil {
 		return api.BadVolumeID, nil
 	}
 
 	// NFS does not support snapshots, so just copy the files.
-	err = copyDir(nfsMountPath+string(volumeID), nfsMountPath+string(newVolumeID))
+	err = copyDir(nfsMountPath+volumeID, nfsMountPath+newVolumeID)
 	if err != nil {
 		d.Delete(newVolumeID)
 		return api.BadVolumeID, nil
@@ -338,19 +340,19 @@ func (d *driver) Snapshot(volumeID api.VolumeID, readonly bool, locator api.Volu
 	return newVolumeID, nil
 }
 
-func (d *driver) Attach(volumeID api.VolumeID) (string, error) {
-	return path.Join(nfsMountPath, string(volumeID)+nfsBlockFile), nil
+func (d *driver) Attach(volumeID string) (string, error) {
+	return path.Join(nfsMountPath, volumeID+nfsBlockFile), nil
 }
 
-func (d *driver) Detach(volumeID api.VolumeID) error {
+func (d *driver) Detach(volumeID string) error {
 	return nil
 }
 
-func (d *driver) Stats(volumeID api.VolumeID) (api.Stats, error) {
+func (d *driver) Stats(volumeID string) (api.Stats, error) {
 	return api.Stats{}, volume.ErrNotSupported
 }
 
-func (d *driver) Alerts(volumeID api.VolumeID) (api.Alerts, error) {
+func (d *driver) Alerts(volumeID string) (api.Alerts, error) {
 	return api.Alerts{}, volume.ErrNotSupported
 }
 
