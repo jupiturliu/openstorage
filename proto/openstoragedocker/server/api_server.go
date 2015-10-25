@@ -122,7 +122,7 @@ func toOpenstorageVolumeSpec(request *openstoragedocker.VolumeCreateRequest) (*o
 		return nil, err
 	}
 	cos, err := openstorage.COSSimpleValueOf(cosObj)
-	if !ok {
+	if err != nil {
 		return nil, err
 	}
 	openstorageVolumeSpec.Cos = cos
