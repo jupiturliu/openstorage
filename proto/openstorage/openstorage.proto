@@ -14,6 +14,7 @@ enum FSType {
   FS_TYPE_ZFS = 3;
   FS_TYPE_NFS = 4;
   FS_TYPE_BTRFS = 5;
+  FS_TYPE_FUSE = 6;
 }
 
 // TODO(pedge): originally this was 0, 5, 9, was that

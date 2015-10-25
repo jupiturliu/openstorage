@@ -3,14 +3,14 @@ package fuse
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"github.com/libopenstorage/openstorage/api"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 	"github.com/libopenstorage/openstorage/volume"
 )
 
-// Provider provides fuse.FS and fuse.MountOptions, given an *api.VolumeSpec.
+// Provider provides fuse.FS and fuse.MountOptions, given an *openstorage.VolumeSpec.
 type Provider interface {
-	GetFS(volumeSpec *api.VolumeSpec) (fs.FS, error)
-	GetMountOptions(volumeSpec *api.VolumeSpec) ([]fuse.MountOption, error)
+	GetFS(volumeSpec *openstorage.VolumeSpec) (fs.FS, error)
+	GetMountOptions(volumeSpec *openstorage.VolumeSpec) ([]fuse.MountOption, error)
 }
 
 // NewVolumeDriver creates a new volume.VolumeDriver for fuse.
