@@ -15,6 +15,7 @@ import (
 	"github.com/portworx/kvdb/mem"
 
 	"github.com/libopenstorage/openstorage/api"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 	"github.com/libopenstorage/openstorage/volume"
 )
 
@@ -22,8 +23,8 @@ import (
 // so that tests can build on other tests' work
 type Context struct {
 	volume.VolumeDriver
-	volID      api.VolumeID
-	snapID     api.VolumeID
+	volID      string
+	snapID     string
 	mountPath  string
 	devicePath string
 	Filesystem string
@@ -36,7 +37,7 @@ func NewContext(d volume.VolumeDriver) *Context {
 		VolumeDriver: d,
 		volID:        api.BadVolumeID,
 		snapID:       api.BadVolumeID,
-		Filesystem:   string(""),
+		Filesystem:   "",
 		testPath:     path.Join("/tmp/openstorage/mount/", d.String()),
 		testFile:     path.Join("/tmp/", d.String()),
 	}
@@ -80,14 +81,15 @@ func RunSnap(t *testing.T, ctx *Context) {
 
 func create(t *testing.T, ctx *Context) {
 	fmt.Println("create")
-
+	fsType, err := openstorage.FSTypeSimpleValueOf(ctx.Filesystem)
+	assert.NoError(t, err)
 	volID, err := ctx.Create(
-		api.VolumeLocator{Name: "foo"},
+		&openstorage.VolumeLocator{Name: "foo"},
 		nil,
-		&api.VolumeSpec{
-			Size:    1 * 1024 * 1024 * 1024,
-			HALevel: 1,
-			Format:  api.Filesystem(ctx.Filesystem),
+		&openstorage.VolumeSpec{
+			SizeBytes: 1 * 1024 * 1024 * 1024,
+			HaLevel:   1,
+			FsType:    fsType,
 		})
 
 	assert.NoError(t, err, "Failed in Create")
@@ -97,32 +99,32 @@ func create(t *testing.T, ctx *Context) {
 func inspect(t *testing.T, ctx *Context) {
 	fmt.Println("inspect")
 
-	vols, err := ctx.Inspect([]api.VolumeID{ctx.volID})
+	vols, err := ctx.Inspect([]string{ctx.volID})
 	assert.NoError(t, err, "Failed in Inspect")
 	assert.NotNil(t, vols, "Nil vols")
 	assert.Equal(t, len(vols), 1, "Expect 1 volume actual %v volumes", len(vols))
 	assert.Equal(t, vols[0].ID, ctx.volID, "Expect volID %v actual %v", ctx.volID, vols[0].ID)
 
-	vols, err = ctx.Inspect([]api.VolumeID{api.VolumeID("shouldNotExist")})
+	vols, err = ctx.Inspect([]string{"shouldNotExist"})
 	assert.Equal(t, 0, len(vols), "Expect 0 volume actual %v volumes", len(vols))
 }
 
 func enumerate(t *testing.T, ctx *Context) {
 	fmt.Println("enumerate")
 
-	vols, err := ctx.Enumerate(api.VolumeLocator{}, nil)
+	vols, err := ctx.Enumerate(&openstorage.VolumeLocator{}, nil)
 	assert.NoError(t, err, "Failed in Enumerate")
 	assert.NotNil(t, vols, "Nil vols")
 	assert.Equal(t, 1, len(vols), "Expect 1 volume actual %v volumes", len(vols))
 	assert.Equal(t, vols[0].ID, ctx.volID, "Expect volID %v actual %v", ctx.volID, vols[0].ID)
 
-	vols, err = ctx.Enumerate(api.VolumeLocator{Name: "foo"}, nil)
+	vols, err = ctx.Enumerate(&openstorage.VolumeLocator{Name: "foo"}, nil)
 	assert.NoError(t, err, "Failed in Enumerate")
 	assert.NotNil(t, vols, "Nil vols")
 	assert.Equal(t, len(vols), 1, "Expect 1 volume actual %v volumes", len(vols))
 	assert.Equal(t, vols[0].ID, ctx.volID, "Expect volID %v actual %v", ctx.volID, vols[0].ID)
 
-	vols, err = ctx.Enumerate(api.VolumeLocator{Name: "shouldNotExist"}, nil)
+	vols, err = ctx.Enumerate(&openstorage.VolumeLocator{Name: "shouldNotExist"}, nil)
 	assert.Equal(t, len(vols), 0, "Expect 0 volume actual %v volumes", len(vols))
 }
 
@@ -130,11 +132,11 @@ func waitReady(t *testing.T, ctx *Context) error {
 	total := time.Minute * 5
 	inc := time.Second * 2
 	elapsed := time.Second * 0
-	vols, err := ctx.Inspect([]api.VolumeID{ctx.volID})
+	vols, err := ctx.Inspect([]string{ctx.volID})
 	for err == nil && len(vols) == 1 && vols[0].Status != api.Up && elapsed < total {
 		time.Sleep(inc)
 		elapsed += inc
-		vols, err = ctx.Inspect([]api.VolumeID{ctx.volID})
+		vols, err = ctx.Inspect([]string{ctx.volID})
 	}
 	if err != nil {
 		return err
@@ -245,10 +247,10 @@ func snap(t *testing.T, ctx *Context) {
 		create(t, ctx)
 	}
 	attach(t, ctx)
-	labels := api.Labels{"oh": "snap"}
+	labels := map[string]string{"oh": "snap"}
 	assert.NotEqual(t, ctx.volID, api.BadVolumeID, "invalid volume ID")
 	id, err := ctx.Snapshot(ctx.volID, false,
-		api.VolumeLocator{Name: "snappy", VolumeLabels: labels})
+		&openstorage.VolumeLocator{Name: "snappy", Labels: labels})
 	assert.NoError(t, err, "Failed in creating a snapshot")
 	ctx.snapID = id
 }
@@ -256,13 +258,13 @@ func snap(t *testing.T, ctx *Context) {
 func snapInspect(t *testing.T, ctx *Context) {
 	fmt.Println("snapInspect")
 
-	snaps, err := ctx.Inspect([]api.VolumeID{ctx.snapID})
+	snaps, err := ctx.Inspect([]string{ctx.snapID})
 	assert.NoError(t, err, "Failed in Inspect")
 	assert.NotNil(t, snaps, "Nil snaps")
 	assert.Equal(t, len(snaps), 1, "Expect 1 snaps actual %v snaps", len(snaps))
 	assert.Equal(t, snaps[0].ID, ctx.snapID, "Expect snapID %v actual %v", ctx.snapID, snaps[0].ID)
 
-	snaps, err = ctx.Inspect([]api.VolumeID{api.VolumeID("shouldNotExist")})
+	snaps, err = ctx.Inspect([]string{"shouldNotExist"})
 	assert.Equal(t, 0, len(snaps), "Expect 0 snaps actual %v snaps", len(snaps))
 }
 
@@ -274,15 +276,15 @@ func snapEnumerate(t *testing.T, ctx *Context) {
 	assert.NotNil(t, snaps, "Nil snaps")
 	assert.Equal(t, 1, len(snaps), "Expect 1 snaps actual %v snaps", len(snaps))
 	assert.Equal(t, snaps[0].ID, ctx.snapID, "Expect snapID %v actual %v", ctx.snapID, snaps[0].ID)
-	labels := snaps[0].Locator.VolumeLabels
+	labels := snaps[0].Locator.Labels
 
-	snaps, err = ctx.SnapEnumerate([]api.VolumeID{ctx.volID}, nil)
+	snaps, err = ctx.SnapEnumerate([]string{ctx.volID}, nil)
 	assert.NoError(t, err, "Failed in snapEnumerate")
 	assert.NotNil(t, snaps, "Nil snaps")
 	assert.Equal(t, len(snaps), 1, "Expect 1 snap actual %v snaps", len(snaps))
 	assert.Equal(t, snaps[0].ID, ctx.snapID, "Expect snapID %v actual %v", ctx.snapID, snaps[0].ID)
 
-	snaps, err = ctx.SnapEnumerate([]api.VolumeID{api.VolumeID("shouldNotExist")}, nil)
+	snaps, err = ctx.SnapEnumerate([]string{"shouldNotExist"}, nil)
 	assert.Equal(t, len(snaps), 0, "Expect 0 snap actual %v snaps", len(snaps))
 
 	snaps, err = ctx.SnapEnumerate(nil, labels)
