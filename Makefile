@@ -1,5 +1,4 @@
 TAGS := daemon btrfs_noversion
-PROTOS := proto/openstorage/openstorage.proto proto/openstorage/docker/openstorage_docker.proto
 
 ifndef PKGS
 PKGS := $(shell go list ./... | grep -v 'github.com/libopenstorage/openstorage/vendor')
@@ -37,10 +36,6 @@ vendor:
 proto:
 	go get -v go.pedge.io/tools/protoc-all
 	STRIP_PACKAGE_COMMENTS=1 PROTOC_INCLUDE_PATH=proto protoc-all github.com/libopenstorage/openstorage
-
-# TODO(pedge): remove when done prototyping
-build-proto: proto
-	go build -tags "$(TAGS)" $(BUILDFLAGS) ./proto/... ./pkg/serve/...
 
 build:
 	go build -tags "$(TAGS)" $(BUILDFLAGS) $(PKGS)
@@ -106,7 +101,6 @@ clean:
 	vendor \
 	proto \
 	build \
-	build-proto \
 	install \
 	lint \
 	vet \
