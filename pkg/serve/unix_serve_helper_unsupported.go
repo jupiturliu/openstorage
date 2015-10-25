@@ -2,19 +2,15 @@
 
 package serve
 
-import (
-	"errors"
-	"net"
-)
+import "errors"
 
 var (
 	errOnlySupportedOnLinuxAndFreeBSD = errors.New("unix socket creation is only supported on linux and freebsd")
 )
 
-func newUnixListener(
+func newUnixServeHelper(
 	volumeDriverName string,
 	group string,
-	start <-chan struct{},
-) (net.Listener, string, error) {
-	return nil, "", errOnlySupportedOnLinuxAndFreeBSD
+) (*serveHelper, error) {
+	return nil, errOnlySupportedOnLinuxAndFreeBSD
 }

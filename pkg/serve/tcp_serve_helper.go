@@ -3,7 +3,6 @@ package serve
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,28 +10,29 @@ import (
 	"github.com/docker/docker/pkg/sockets"
 )
 
-const (
-	pluginSpecDir = "/etc/docker/plugins"
-)
-
-func newTCPListener(
+func newTCPServeHelper(
 	volumeDriverName string,
 	address string,
-	start <-chan struct{},
-) (net.Listener, string, error) {
+) (*serveHelper, error) {
+	start := make(chan struct{})
 	listener, err := sockets.NewTCPSocket(address, nil, start)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	spec, err := writeSpec(volumeDriverName, listener.Addr().String())
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	return listener, spec, nil
+	return &serveHelper{
+		listener,
+		address,
+		spec,
+		start,
+	}, nil
 }
 
 func writeSpec(name string, address string) (string, error) {
-	dir := filepath.Join(pluginSpecDir, name)
+	dir := filepath.Join(TCPSpecDir, name)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", err
 	}
