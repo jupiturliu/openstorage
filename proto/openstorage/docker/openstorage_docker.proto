@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package openstorage.docker;
+
+import "google/api/annotations.proto";
+
+option java_multiple_files = true;
+option java_package = "com.openstorage.docker";
+
+message VolumeCreateRequest {
+  string name = 1;
+  map<string, string> opts = 2;
+}
+
+message VolumeCreateResponse {
+  string err = 1;  
+}
+
+service API {
+  rpc VolumeCreate(VolumeCreateRequest) returns (VolumeCreateResponse) {
+    option (google.api.http) = {
+      post: "/VolumeDriver.Create"
+      body: "*"
+    };
+  }
+}

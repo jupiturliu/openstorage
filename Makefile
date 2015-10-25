@@ -1,5 +1,6 @@
 TAGS := daemon btrfs_noversion
 PKGS := $(shell go list ./... | grep -v 'github.com/libopenstorage/openstorage/vendor')
+PROTOS := proto/openstorage/openstorage.proto proto/openstorage/docker/openstorage_docker.proto
 
 ifeq ($(BUILD_TYPE),debug)
 BUILDFLAGS := -gcflags "-N -l"
@@ -96,6 +97,7 @@ clean:
 	test-deps \
 	update-test-deps \
 	vendor \
+	proto \
 	build \
 	install \
 	lint \
