@@ -37,7 +37,7 @@ proto:
 
 # TODO(pedge): remove when done prototyping
 build-proto: proto
-	go build -tags "$(TAGS)" $(BUILDFLAGS) ./proto/...
+	go build -tags "$(TAGS)" $(BUILDFLAGS) ./proto/... ./pkg/serve/...
 
 build:
 	go build -tags "$(TAGS)" $(BUILDFLAGS) $(PKGS)
