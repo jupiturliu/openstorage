@@ -45,7 +45,7 @@ message VolumeSpec {
   // TODO(pedge): uint64? uint32? need to understand what 0 value means
   int64 block_size = 4;
   // TODO(pedge): type? enum? range? bounds?
-  int32 HALevel = 5;
+  int32 ha_level = 5;
   // TODO(pedge): cos? volume_cos? VolumeCOS for enum name?
   COS cos = 6;
   // TODO(pege): dedupe?

@@ -33,7 +33,7 @@ vendor:
 
 proto:
 	go get -v go.pedge.io/tools/protoc-all
-	STRIP_PACKAGE_COMMENTS=1 protoc-all github.com/libopenstorage/openstorage
+	STRIP_PACKAGE_COMMENTS=1 PROTOC_INCLUDE_PATH=proto protoc-all github.com/libopenstorage/openstorage
 
 build:
 	go build -tags "$(TAGS)" $(BUILDFLAGS) $(PKGS)
