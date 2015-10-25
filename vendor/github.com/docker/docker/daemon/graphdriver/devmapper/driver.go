@@ -10,10 +10,8 @@ import (
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
-
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/devicemapper"
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/units"
 )
@@ -30,15 +28,13 @@ func init() {
 // Driver contains the device set mounted and the home directory
 type Driver struct {
 	*DeviceSet
-	home    string
-	uidMaps []idtools.IDMap
-	gidMaps []idtools.IDMap
+	home string
 }
 
 var backingFs = "<unknown>"
 
 // Init creates a driver with the given home and the set of options.
-func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
+func Init(home string, options []string) (graphdriver.Driver, error) {
 	fsMagic, err := graphdriver.GetFSMagic(home)
 	if err != nil {
 		return nil, err
@@ -47,7 +43,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		backingFs = fsName
 	}
 
-	deviceSet, err := NewDeviceSet(home, true, options, uidMaps, gidMaps)
+	deviceSet, err := NewDeviceSet(home, true, options)
 	if err != nil {
 		return nil, err
 	}
@@ -59,11 +55,9 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	d := &Driver{
 		DeviceSet: deviceSet,
 		home:      home,
-		uidMaps:   uidMaps,
-		gidMaps:   gidMaps,
 	}
 
-	return graphdriver.NewNaiveDiffDriver(d, uidMaps, gidMaps), nil
+	return graphdriver.NewNaiveDiffDriver(d), nil
 }
 
 func (d *Driver) String() string {
@@ -79,7 +73,6 @@ func (d *Driver) Status() [][2]string {
 	status := [][2]string{
 		{"Pool Name", s.PoolName},
 		{"Pool Blocksize", fmt.Sprintf("%s", units.HumanSize(float64(s.SectorSize)))},
-		{"Base Device Size", fmt.Sprintf("%s", units.HumanSize(float64(s.BaseDeviceSize)))},
 		{"Backing Filesystem", backingFs},
 		{"Data file", s.DataFile},
 		{"Metadata file", s.MetadataFile},
@@ -167,15 +160,8 @@ func (d *Driver) Remove(id string) error {
 func (d *Driver) Get(id, mountLabel string) (string, error) {
 	mp := path.Join(d.home, "mnt", id)
 
-	uid, gid, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
-	if err != nil {
-		return "", err
-	}
 	// Create the target directories if they don't exist
-	if err := idtools.MkdirAllAs(path.Join(d.home, "mnt"), 0755, uid, gid); err != nil && !os.IsExist(err) {
-		return "", err
-	}
-	if err := idtools.MkdirAs(mp, 0755, uid, gid); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(mp, 0755); err != nil {
 		return "", err
 	}
 
@@ -185,7 +171,7 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 	}
 
 	rootFs := path.Join(mp, "rootfs")
-	if err := idtools.MkdirAllAs(rootFs, 0755, uid, gid); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(rootFs, 0755); err != nil {
 		d.DeviceSet.UnmountDevice(id)
 		return "", err
 	}

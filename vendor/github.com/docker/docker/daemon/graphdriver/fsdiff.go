@@ -6,10 +6,8 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/ioutils"
 )
 
@@ -20,8 +18,6 @@ import (
 // Notably, the AUFS driver doesn't need to be wrapped like this.
 type NaiveDiffDriver struct {
 	ProtoDriver
-	uidMaps []idtools.IDMap
-	gidMaps []idtools.IDMap
 }
 
 // NewNaiveDiffDriver returns a fully functional driver that wraps the
@@ -31,10 +27,8 @@ type NaiveDiffDriver struct {
 //     Changes(id, parent string) ([]archive.Change, error)
 //     ApplyDiff(id, parent string, diff archive.Reader) (size int64, err error)
 //     DiffSize(id, parent string) (size int64, err error)
-func NewNaiveDiffDriver(driver ProtoDriver, uidMaps, gidMaps []idtools.IDMap) Driver {
-	return &NaiveDiffDriver{ProtoDriver: driver,
-		uidMaps: uidMaps,
-		gidMaps: gidMaps}
+func NewNaiveDiffDriver(driver ProtoDriver) Driver {
+	return &NaiveDiffDriver{ProtoDriver: driver}
 }
 
 // Diff produces an archive of the changes between the specified
@@ -76,7 +70,7 @@ func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err e
 		return nil, err
 	}
 
-	archive, err := archive.ExportChanges(layerFs, changes, gdw.uidMaps, gdw.gidMaps)
+	archive, err := archive.ExportChanges(layerFs, changes)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +119,9 @@ func (gdw *NaiveDiffDriver) ApplyDiff(id, parent string, diff archive.Reader) (s
 	}
 	defer driver.Put(id)
 
-	options := &archive.TarOptions{UIDMaps: gdw.uidMaps,
-		GIDMaps: gdw.gidMaps}
 	start := time.Now().UTC()
 	logrus.Debugf("Start untar layer")
-	if size, err = chrootarchive.ApplyUncompressedLayer(layerFs, diff, options); err != nil {
+	if size, err = chrootarchive.ApplyUncompressedLayer(layerFs, diff); err != nil {
 		return
 	}
 	logrus.Debugf("Untar time: %vs", time.Now().UTC().Sub(start).Seconds())

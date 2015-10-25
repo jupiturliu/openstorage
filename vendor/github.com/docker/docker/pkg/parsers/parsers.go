@@ -5,7 +5,6 @@ package parsers
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"path"
 	"runtime"
@@ -17,12 +16,9 @@ import (
 // Depending of the address specified, will use the defaultTCPAddr or defaultUnixAddr
 // defaultUnixAddr must be a absolute file path (no `unix://` prefix)
 // defaultTCPAddr must be the full `tcp://host:port` form
-func ParseDockerDaemonHost(defaultTCPAddr, defaultTLSHost, defaultUnixAddr, defaultAddr, addr string) (string, error) {
+func ParseDockerDaemonHost(defaultTCPAddr, defaultUnixAddr, addr string) (string, error) {
 	addr = strings.TrimSpace(addr)
 	if addr == "" {
-		if defaultAddr == defaultTLSHost {
-			return defaultTLSHost, nil
-		}
 		if runtime.GOOS != "windows" {
 			return fmt.Sprintf("unix://%s", defaultUnixAddr), nil
 		}
@@ -78,32 +74,25 @@ func ParseTCPAddr(tryAddr string, defaultAddr string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	host, port, err := net.SplitHostPort(u.Host)
-	if err != nil {
+	hostParts := strings.Split(u.Host, ":")
+	if len(hostParts) != 2 {
 		return "", fmt.Errorf("Invalid bind address format: %s", tryAddr)
 	}
-
-	defaultAddr = strings.TrimPrefix(defaultAddr, "tcp://")
-	defaultHost, defaultPort, err := net.SplitHostPort(defaultAddr)
-	if err != nil {
-		return "", err
+	defaults := strings.Split(defaultAddr, ":")
+	if len(defaults) != 3 {
+		return "", fmt.Errorf("Invalid defaults address format: %s", defaultAddr)
 	}
 
+	host := hostParts[0]
 	if host == "" {
-		host = defaultHost
+		host = strings.TrimPrefix(defaults[1], "//")
 	}
-	if port == "" {
-		port = defaultPort
+	if hostParts[1] == "" {
+		hostParts[1] = defaults[2]
 	}
-	p, err := strconv.Atoi(port)
+	p, err := strconv.Atoi(hostParts[1])
 	if err != nil && p == 0 {
 		return "", fmt.Errorf("Invalid bind address format: %s", tryAddr)
-	}
-
-	if net.ParseIP(host).To4() == nil && strings.Contains(host, ":") {
-		// This is either an ipv6 address
-		host = "[" + host + "]"
 	}
 	return fmt.Sprintf("tcp://%s:%d%s", host, p, u.Path), nil
 }

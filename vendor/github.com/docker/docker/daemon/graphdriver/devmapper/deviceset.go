@@ -19,14 +19,11 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/devicemapper"
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/units"
-
 	"github.com/opencontainers/runc/libcontainer/label"
 )
 
@@ -116,8 +113,6 @@ type DeviceSet struct {
 	BaseDeviceUUID        string //save UUID of base device
 	nrDeletedDevices      uint   //number of deleted devices
 	deletionWorkerTicker  *time.Ticker
-	uidMaps               []idtools.IDMap
-	gidMaps               []idtools.IDMap
 }
 
 // DiskUsage contains information about disk usage and is used when reporting Status of a device.
@@ -146,8 +141,6 @@ type Status struct {
 	Data DiskUsage
 	// Metadata is the disk used for meta data.
 	Metadata DiskUsage
-	// BaseDeviceSize is base size of container and image
-	BaseDeviceSize uint64
 	// SectorSize size of the vector.
 	SectorSize uint64
 	// UdevSyncSupported is true if sync is supported.
@@ -257,11 +250,7 @@ func (devices *DeviceSet) ensureImage(name string, size int64) (string, error) {
 	dirname := devices.loopbackDir()
 	filename := path.Join(dirname, name)
 
-	uid, gid, err := idtools.GetRootUIDGID(devices.uidMaps, devices.gidMaps)
-	if err != nil {
-		return "", err
-	}
-	if err := idtools.MkdirAllAs(dirname, 0700, uid, gid); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(dirname, 0700); err != nil {
 		return "", err
 	}
 
@@ -599,7 +588,6 @@ func (devices *DeviceSet) cleanupDeletedDevices() error {
 
 	// If there are no deleted devices, there is nothing to do.
 	if devices.nrDeletedDevices == 0 {
-		devices.Unlock()
 		return nil
 	}
 
@@ -834,14 +822,6 @@ func getDeviceUUID(device string) (string, error) {
 	uuid = strings.TrimSpace(uuid)
 	logrus.Debugf("UUID for device: %s is:%s", device, uuid)
 	return uuid, nil
-}
-
-func (devices *DeviceSet) getBaseDeviceSize() uint64 {
-	info, _ := devices.lookupDevice("")
-	if info == nil {
-		return 0
-	}
-	return info.Size
 }
 
 func (devices *DeviceSet) verifyBaseDeviceUUID(baseInfo *devInfo) error {
@@ -1468,16 +1448,7 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 		logrus.Warn("Udev sync is not supported. This will lead to unexpected behavior, data loss and errors. For more information, see https://docs.docker.com/reference/commandline/daemon/#daemon-storage-driver-option")
 	}
 
-	//create the root dir of the devmapper driver ownership to match this
-	//daemon's remapped root uid/gid so containers can start properly
-	uid, gid, err := idtools.GetRootUIDGID(devices.uidMaps, devices.gidMaps)
-	if err != nil {
-		return err
-	}
-	if err := idtools.MkdirAs(devices.root, 0700, uid, gid); err != nil && !os.IsExist(err) {
-		return err
-	}
-	if err := os.MkdirAll(devices.metadataDir(), 0700); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(devices.metadataDir(), 0700); err != nil {
 		return err
 	}
 
@@ -2209,7 +2180,6 @@ func (devices *DeviceSet) Status() *Status {
 	status.DeferredRemoveEnabled = devices.deferredRemove
 	status.DeferredDeleteEnabled = devices.deferredDelete
 	status.DeferredDeletedDeviceCount = devices.nrDeletedDevices
-	status.BaseDeviceSize = devices.getBaseDeviceSize()
 
 	totalSizeInSectors, _, dataUsed, dataTotal, metadataUsed, metadataTotal, err := devices.poolStatus()
 	if err == nil {
@@ -2260,7 +2230,7 @@ func (devices *DeviceSet) exportDeviceMetadata(hash string) (*deviceMetadata, er
 }
 
 // NewDeviceSet creates the device set based on the options provided.
-func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps []idtools.IDMap) (*DeviceSet, error) {
+func NewDeviceSet(root string, doInit bool, options []string) (*DeviceSet, error) {
 	devicemapper.SetDevDir("/dev")
 
 	devices := &DeviceSet{
@@ -2275,8 +2245,6 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		thinpBlockSize:        defaultThinpBlockSize,
 		deviceIDMap:           make([]byte, deviceIDMapSz),
 		deletionWorkerTicker:  time.NewTicker(time.Second * 30),
-		uidMaps:               uidMaps,
-		gidMaps:               gidMaps,
 	}
 
 	foundBlkDiscard := false

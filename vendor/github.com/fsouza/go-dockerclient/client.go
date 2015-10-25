@@ -27,12 +27,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
 	"time"
 
 	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/opts"
 	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/homedir"
 	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/stdcopy"
-	"github.com/fsouza/go-dockerclient/external/github.com/hashicorp/go-cleanhttp"
 )
 
 const userAgent = "go-dockerclient"
@@ -192,7 +192,7 @@ func NewVersionedClient(endpoint string, apiVersionString string) (*Client, erro
 		}
 	}
 	return &Client{
-		HTTPClient:          cleanhttp.DefaultClient(),
+		HTTPClient:          http.DefaultClient,
 		Dialer:              &net.Dialer{},
 		endpoint:            endpoint,
 		endpointURL:         u,
@@ -251,16 +251,17 @@ func NewVersionedClientFromEnv(apiVersionString string) (*Client, error) {
 	}
 	dockerHost := dockerEnv.dockerHost
 	if dockerEnv.dockerTLSVerify {
-		parts := strings.SplitN(dockerEnv.dockerHost, "://", 2)
+		parts := strings.SplitN(dockerHost, "://", 2)
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("could not split %s into two parts by ://", dockerHost)
 		}
+		dockerHost = fmt.Sprintf("https://%s", parts[1])
 		cert := filepath.Join(dockerEnv.dockerCertPath, "cert.pem")
 		key := filepath.Join(dockerEnv.dockerCertPath, "key.pem")
 		ca := filepath.Join(dockerEnv.dockerCertPath, "ca.pem")
-		return NewVersionedTLSClient(dockerEnv.dockerHost, cert, key, ca, apiVersionString)
+		return NewVersionedTLSClient(dockerHost, cert, key, ca, apiVersionString)
 	}
-	return NewVersionedClient(dockerEnv.dockerHost, apiVersionString)
+	return NewVersionedClient(dockerHost, apiVersionString)
 }
 
 // NewVersionedTLSClientFromBytes returns a Client instance ready for TLS communications with the givens
@@ -295,8 +296,9 @@ func NewVersionedTLSClientFromBytes(endpoint string, certPEMBlock, keyPEMBlock, 
 		}
 		tlsConfig.RootCAs = caPool
 	}
-	tr := cleanhttp.DefaultTransport()
-	tr.TLSClientConfig = tlsConfig
+	tr := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +375,6 @@ func (c *Client) getServerAPIVersionString() (version string, err error) {
 type doOptions struct {
 	data      interface{}
 	forceJSON bool
-	headers   map[string]string
 }
 
 func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, error) {
@@ -391,6 +392,7 @@ func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, e
 			return nil, err
 		}
 	}
+
 	httpClient := c.HTTPClient
 	protocol := c.endpointURL.Scheme
 	var u string
@@ -400,6 +402,7 @@ func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, e
 	} else {
 		u = c.getURL(path)
 	}
+
 	req, err := http.NewRequest(method, u, params)
 	if err != nil {
 		return nil, err
@@ -411,9 +414,6 @@ func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, e
 		req.Header.Set("Content-Type", "plain/text")
 	}
 
-	for k, v := range doOptions.headers {
-		req.Header.Set(k, v)
-	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
@@ -421,6 +421,7 @@ func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, e
 		}
 		return nil, err
 	}
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 		return nil, newError(resp)
 	}
@@ -561,6 +562,7 @@ func (c *Client) hijack(method, path string, hijackOptions hijackOptions) error 
 			return err
 		}
 	}
+
 	var params io.Reader
 	if hijackOptions.data != nil {
 		buf, err := json.Marshal(hijackOptions.data)
@@ -569,6 +571,7 @@ func (c *Client) hijack(method, path string, hijackOptions hijackOptions) error 
 		}
 		params = bytes.NewBuffer(buf)
 	}
+
 	if hijackOptions.stdout == nil {
 		hijackOptions.stdout = ioutil.Discard
 	}
@@ -617,7 +620,6 @@ func (c *Client) hijack(method, path string, hijackOptions hijackOptions) error 
 				if closer, ok := hijackOptions.in.(io.Closer); ok {
 					closer.Close()
 				}
-				errChanIn <- nil
 			}
 		}()
 		var err error
@@ -651,6 +653,7 @@ func (c *Client) getURL(path string) string {
 	if c.endpointURL.Scheme == "unix" {
 		urlStr = ""
 	}
+
 	if c.requestedAPIVersion != nil {
 		return fmt.Sprintf("%s/v%s%s", urlStr, c.requestedAPIVersion, path)
 	}
@@ -666,7 +669,9 @@ func (c *Client) getFakeUnixURL(path string) string {
 	u.Scheme = "http"
 	u.Host = "unix.sock" // Doesn't matter what this is - it's not used.
 	u.Path = ""
+
 	urlStr := strings.TrimRight(u.String(), "/")
+
 	if c.requestedAPIVersion != nil {
 		return fmt.Sprintf("%s/v%s%s", urlStr, c.requestedAPIVersion, path)
 	}
@@ -677,6 +682,7 @@ func (c *Client) unixClient() *http.Client {
 	if c.unixHTTPClient != nil {
 		return c.unixHTTPClient
 	}
+
 	socketPath := c.endpointURL.Path
 	c.unixHTTPClient = &http.Client{
 		Transport: &http.Transport{
@@ -685,6 +691,7 @@ func (c *Client) unixClient() *http.Client {
 			},
 		},
 	}
+
 	return c.unixHTTPClient
 }
 
@@ -806,7 +813,7 @@ func parseEndpoint(endpoint string, tls bool) (*url.URL, error) {
 		number, err := strconv.ParseInt(port, 10, 64)
 		if err == nil && number > 0 && number < 65536 {
 			if u.Scheme == "tcp" {
-				if tls {
+				if number == 2376 {
 					u.Scheme = "https"
 				} else {
 					u.Scheme = "http"
@@ -830,7 +837,7 @@ func getDockerEnv() (*dockerEnv, error) {
 	dockerHost := os.Getenv("DOCKER_HOST")
 	var err error
 	if dockerHost == "" {
-		dockerHost, err = DefaultDockerHost()
+		dockerHost, err = getDefaultDockerHost()
 		if err != nil {
 			return nil, err
 		}
@@ -858,15 +865,14 @@ func getDockerEnv() (*dockerEnv, error) {
 	}, nil
 }
 
-// DefaultDockerHost returns the default docker socket for the current OS
-func DefaultDockerHost() (string, error) {
+func getDefaultDockerHost() (string, error) {
 	var defaultHost string
-	if runtime.GOOS == "windows" {
-		// If we do not have a host, default to TCP socket on Windows
-		defaultHost = fmt.Sprintf("tcp://%s:%d", opts.DefaultHTTPHost, opts.DefaultHTTPPort)
-	} else {
+	if runtime.GOOS != "windows" {
 		// If we do not have a host, default to unix socket
 		defaultHost = fmt.Sprintf("unix://%s", opts.DefaultUnixSocket)
+	} else {
+		// If we do not have a host, default to TCP socket on Windows
+		defaultHost = fmt.Sprintf("tcp://%s:%d", opts.DefaultHTTPHost, opts.DefaultHTTPPort)
 	}
 	return opts.ValidateHost(defaultHost)
 }

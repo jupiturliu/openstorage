@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/pools"
 	"github.com/docker/docker/pkg/system"
 )
@@ -328,29 +327,13 @@ func ChangesDirs(newDir, oldDir string) ([]Change, error) {
 
 // ChangesSize calculates the size in bytes of the provided changes, based on newDir.
 func ChangesSize(newDir string, changes []Change) int64 {
-	var (
-		size int64
-		sf   = make(map[uint64]struct{})
-	)
+	var size int64
 	for _, change := range changes {
 		if change.Kind == ChangeModify || change.Kind == ChangeAdd {
 			file := filepath.Join(newDir, change.Path)
-			fileInfo, err := os.Lstat(file)
-			if err != nil {
-				logrus.Errorf("Can not stat %q: %s", file, err)
-				continue
-			}
-
+			fileInfo, _ := os.Lstat(file)
 			if fileInfo != nil && !fileInfo.IsDir() {
-				if hasHardlinks(fileInfo) {
-					inode := getIno(fileInfo)
-					if _, ok := sf[inode]; !ok {
-						size += fileInfo.Size()
-						sf[inode] = struct{}{}
-					}
-				} else {
-					size += fileInfo.Size()
-				}
+				size += fileInfo.Size()
 			}
 		}
 	}
@@ -358,15 +341,13 @@ func ChangesSize(newDir string, changes []Change) int64 {
 }
 
 // ExportChanges produces an Archive from the provided changes, relative to dir.
-func ExportChanges(dir string, changes []Change, uidMaps, gidMaps []idtools.IDMap) (Archive, error) {
+func ExportChanges(dir string, changes []Change) (Archive, error) {
 	reader, writer := io.Pipe()
 	go func() {
 		ta := &tarAppender{
 			TarWriter: tar.NewWriter(writer),
 			Buffer:    pools.BufioWriter32KPool.Get(nil),
 			SeenFiles: make(map[uint64]string),
-			UIDMaps:   uidMaps,
-			GIDMaps:   gidMaps,
 		}
 		// this buffer is needed for the duration of this piped stream
 		defer pools.BufioWriter32KPool.Put(ta.Buffer)

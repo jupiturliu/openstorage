@@ -101,7 +101,6 @@ package codec
 // check for these error conditions.
 
 import (
-	"bytes"
 	"encoding"
 	"encoding/binary"
 	"errors"
@@ -194,35 +193,7 @@ const (
 
 type seqType uint8
 
-const (
-	_ seqType = iota
-	seqTypeArray
-	seqTypeSlice
-	seqTypeChan
-)
-
-// note that containerMapStart and containerArraySend are not sent.
-// This is because the ReadXXXStart and EncodeXXXStart already does these.
-type containerState uint8
-
-const (
-	_ containerState = iota
-
-	containerMapStart // slot left open, since Driver method already covers it
-	containerMapKey
-	containerMapValue
-	containerMapEnd
-	containerArrayStart // slot left open, since Driver methods already cover it
-	containerArrayElem
-	containerArrayEnd
-)
-
-type containerStateRecv interface {
-	sendContainerState(containerState)
-}
-
-// mirror json.Marshaler and json.Unmarshaler here,
-// so we don't import the encoding/json package
+// mirror json.Marshaler and json.Unmarshaler here, so we don't import the encoding/json package
 type jsonMarshaler interface {
 	MarshalJSON() ([]byte, error)
 }
@@ -230,14 +201,23 @@ type jsonUnmarshaler interface {
 	UnmarshalJSON([]byte) error
 }
 
+const (
+	_ seqType = iota
+	seqTypeArray
+	seqTypeSlice
+	seqTypeChan
+)
+
 var (
 	bigen               = binary.BigEndian
 	structInfoFieldName = "_struct"
 
-	mapStrIntfTyp  = reflect.TypeOf(map[string]interface{}(nil))
-	mapIntfIntfTyp = reflect.TypeOf(map[interface{}]interface{}(nil))
-	intfSliceTyp   = reflect.TypeOf([]interface{}(nil))
-	intfTyp        = intfSliceTyp.Elem()
+	cachedTypeInfo      = make(map[uintptr]*typeInfo, 64)
+	cachedTypeInfoMutex sync.RWMutex
+
+	// mapStrIntfTyp = reflect.TypeOf(map[string]interface{}(nil))
+	intfSliceTyp = reflect.TypeOf([]interface{}(nil))
+	intfTyp      = intfSliceTyp.Elem()
 
 	stringTyp     = reflect.TypeOf("")
 	timeTyp       = reflect.TypeOf(time.Time{})
@@ -263,9 +243,6 @@ var (
 	timeTypId       = reflect.ValueOf(timeTyp).Pointer()
 	stringTypId     = reflect.ValueOf(stringTyp).Pointer()
 
-	mapStrIntfTypId  = reflect.ValueOf(mapStrIntfTyp).Pointer()
-	mapIntfIntfTypId = reflect.ValueOf(mapIntfIntfTyp).Pointer()
-	intfSliceTypId   = reflect.ValueOf(intfSliceTyp).Pointer()
 	// mapBySliceTypId  = reflect.ValueOf(mapBySliceTyp).Pointer()
 
 	intBitsize  uint8 = uint8(reflect.TypeOf(int(0)).Bits())
@@ -278,8 +255,6 @@ var (
 
 	noFieldNameToStructFieldInfoErr = errors.New("no field name passed to parseStructFieldInfo")
 )
-
-var defTypeInfos = NewTypeInfos([]string{"codec", "json"})
 
 // Selfer defines methods by which a value can encode or decode itself.
 //
@@ -306,11 +281,6 @@ type MapBySlice interface {
 //
 // BasicHandle encapsulates the common options and extension functions.
 type BasicHandle struct {
-	// TypeInfos is used to get the type info for any type.
-	//
-	// If not configured, the default TypeInfos is used, which uses struct tag keys: codec, json
-	TypeInfos *TypeInfos
-
 	extHandle
 	EncodeOptions
 	DecodeOptions
@@ -318,13 +288,6 @@ type BasicHandle struct {
 
 func (x *BasicHandle) getBasicHandle() *BasicHandle {
 	return x
-}
-
-func (x *BasicHandle) getTypeInfo(rtid uintptr, rt reflect.Type) (pti *typeInfo) {
-	if x.TypeInfos != nil {
-		return x.TypeInfos.get(rtid, rt)
-	}
-	return defTypeInfos.get(rtid, rt)
 }
 
 // Handle is the interface for a specific encoding format.
@@ -499,7 +462,7 @@ type extTypeTagFn struct {
 	ext  Ext
 }
 
-type extHandle []extTypeTagFn
+type extHandle []*extTypeTagFn
 
 // DEPRECATED: Use SetBytesExt or SetInterfaceExt on the Handle instead.
 //
@@ -538,17 +501,12 @@ func (o *extHandle) SetExt(rt reflect.Type, tag uint64, ext Ext) (err error) {
 		}
 	}
 
-	if *o == nil {
-		*o = make([]extTypeTagFn, 0, 4)
-	}
-	*o = append(*o, extTypeTagFn{rtid, rt, tag, ext})
+	*o = append(*o, &extTypeTagFn{rtid, rt, tag, ext})
 	return
 }
 
 func (o extHandle) getExt(rtid uintptr) *extTypeTagFn {
-	var v *extTypeTagFn
-	for i := range o {
-		v = &o[i]
+	for _, v := range o {
 		if v.rtid == rtid {
 			return v
 		}
@@ -557,9 +515,7 @@ func (o extHandle) getExt(rtid uintptr) *extTypeTagFn {
 }
 
 func (o extHandle) getExtForTag(tag uint64) *extTypeTagFn {
-	var v *extTypeTagFn
-	for i := range o {
-		v = &o[i]
+	for _, v := range o {
 		if v.tag == tag {
 			return v
 		}
@@ -682,8 +638,6 @@ type typeInfo struct {
 	rt   reflect.Type
 	rtid uintptr
 
-	numMeth uint16 // number of methods
-
 	// baseId gives pointer to the base reflect.Type, after deferencing
 	// the pointers. E.g. base type of ***time.Time is time.Time.
 	base      reflect.Type
@@ -741,49 +695,33 @@ func (ti *typeInfo) indexForEncName(name string) int {
 	return -1
 }
 
-// TypeInfos caches typeInfo for each type on first inspection.
-//
-// It is configured with a set of tag keys, which are used to get
-// configuration for the type.
-type TypeInfos struct {
-	infos map[uintptr]*typeInfo
-	mu    sync.RWMutex
-	tags  []string
-}
-
-// NewTypeInfos creates a TypeInfos given a set of struct tags keys.
-//
-// This allows users customize the struct tag keys which contain configuration
-// of their types.
-func NewTypeInfos(tags []string) *TypeInfos {
-	return &TypeInfos{tags: tags, infos: make(map[uintptr]*typeInfo, 64)}
-}
-
-func (x *TypeInfos) structTag(t reflect.StructTag) (s string) {
+func getStructTag(t reflect.StructTag) (s string) {
 	// check for tags: codec, json, in that order.
 	// this allows seamless support for many configured structs.
-	for _, x := range x.tags {
-		s = t.Get(x)
-		if s != "" {
-			return s
-		}
+	s = t.Get("codec")
+	if s == "" {
+		s = t.Get("json")
 	}
 	return
 }
 
-func (x *TypeInfos) get(rtid uintptr, rt reflect.Type) (pti *typeInfo) {
+func getTypeInfo(rtid uintptr, rt reflect.Type) (pti *typeInfo) {
 	var ok bool
-	x.mu.RLock()
-	pti, ok = x.infos[rtid]
-	x.mu.RUnlock()
+	cachedTypeInfoMutex.RLock()
+	pti, ok = cachedTypeInfo[rtid]
+	cachedTypeInfoMutex.RUnlock()
 	if ok {
 		return
 	}
 
-	// do not hold lock while computing this.
-	// it may lead to duplication, but that's ok.
+	cachedTypeInfoMutex.Lock()
+	defer cachedTypeInfoMutex.Unlock()
+	if pti, ok = cachedTypeInfo[rtid]; ok {
+		return
+	}
+
 	ti := typeInfo{rt: rt, rtid: rtid}
-	ti.numMeth = uint16(rt.NumMethod())
+	pti = &ti
 
 	var indir int8
 	if ok, indir = implementsIntf(rt, binaryMarshalerTyp); ok {
@@ -830,11 +768,11 @@ func (x *TypeInfos) get(rtid uintptr, rt reflect.Type) (pti *typeInfo) {
 	if rt.Kind() == reflect.Struct {
 		var siInfo *structFieldInfo
 		if f, ok := rt.FieldByName(structInfoFieldName); ok {
-			siInfo = parseStructFieldInfo(structInfoFieldName, x.structTag(f.Tag))
+			siInfo = parseStructFieldInfo(structInfoFieldName, getStructTag(f.Tag))
 			ti.toArray = siInfo.toArray
 		}
 		sfip := make([]*structFieldInfo, 0, rt.NumField())
-		x.rget(rt, nil, make(map[string]bool, 16), &sfip, siInfo)
+		rgetTypeInfo(rt, nil, make(map[string]bool, 16), &sfip, siInfo)
 
 		ti.sfip = make([]*structFieldInfo, len(sfip))
 		ti.sfi = make([]*structFieldInfo, len(sfip))
@@ -843,17 +781,11 @@ func (x *TypeInfos) get(rtid uintptr, rt reflect.Type) (pti *typeInfo) {
 		copy(ti.sfi, sfip)
 	}
 	// sfi = sfip
-
-	x.mu.Lock()
-	if pti, ok = x.infos[rtid]; !ok {
-		pti = &ti
-		x.infos[rtid] = pti
-	}
-	x.mu.Unlock()
+	cachedTypeInfo[rtid] = pti
 	return
 }
 
-func (x *TypeInfos) rget(rt reflect.Type, indexstack []int, fnameToHastag map[string]bool,
+func rgetTypeInfo(rt reflect.Type, indexstack []int, fnameToHastag map[string]bool,
 	sfi *[]*structFieldInfo, siInfo *structFieldInfo,
 ) {
 	for j := 0; j < rt.NumField(); j++ {
@@ -862,7 +794,7 @@ func (x *TypeInfos) rget(rt reflect.Type, indexstack []int, fnameToHastag map[st
 		if tk := f.Type.Kind(); tk == reflect.Func {
 			continue
 		}
-		stag := x.structTag(f.Tag)
+		stag := getStructTag(f.Tag)
 		if stag == "-" {
 			continue
 		}
@@ -893,7 +825,7 @@ func (x *TypeInfos) rget(rt reflect.Type, indexstack []int, fnameToHastag map[st
 				copy(indexstack2, indexstack)
 				indexstack2[len(indexstack)] = j
 				// indexstack2 := append(append(make([]int, 0, len(indexstack)+4), indexstack...), j)
-				x.rget(ft, indexstack2, fnameToHastag, sfi, siInfo)
+				rgetTypeInfo(ft, indexstack2, fnameToHastag, sfi, siInfo)
 				continue
 			}
 		}
@@ -1012,114 +944,3 @@ func (_ checkOverflow) SignedInt(v uint64) (i int64, overflow bool) {
 	i = int64(v)
 	return
 }
-
-// ------------------ SORT -----------------
-
-func isNaN(f float64) bool { return f != f }
-
-// -----------------------
-
-type intSlice []int64
-type uintSlice []uint64
-type floatSlice []float64
-type boolSlice []bool
-type stringSlice []string
-type bytesSlice [][]byte
-
-func (p intSlice) Len() int           { return len(p) }
-func (p intSlice) Less(i, j int) bool { return p[i] < p[j] }
-func (p intSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (p uintSlice) Len() int           { return len(p) }
-func (p uintSlice) Less(i, j int) bool { return p[i] < p[j] }
-func (p uintSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (p floatSlice) Len() int { return len(p) }
-func (p floatSlice) Less(i, j int) bool {
-	return p[i] < p[j] || isNaN(p[i]) && !isNaN(p[j])
-}
-func (p floatSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-
-func (p stringSlice) Len() int           { return len(p) }
-func (p stringSlice) Less(i, j int) bool { return p[i] < p[j] }
-func (p stringSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (p bytesSlice) Len() int           { return len(p) }
-func (p bytesSlice) Less(i, j int) bool { return bytes.Compare(p[i], p[j]) == -1 }
-func (p bytesSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (p boolSlice) Len() int           { return len(p) }
-func (p boolSlice) Less(i, j int) bool { return !p[i] && p[j] }
-func (p boolSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-// ---------------------
-
-type intRv struct {
-	v int64
-	r reflect.Value
-}
-type intRvSlice []intRv
-type uintRv struct {
-	v uint64
-	r reflect.Value
-}
-type uintRvSlice []uintRv
-type floatRv struct {
-	v float64
-	r reflect.Value
-}
-type floatRvSlice []floatRv
-type boolRv struct {
-	v bool
-	r reflect.Value
-}
-type boolRvSlice []boolRv
-type stringRv struct {
-	v string
-	r reflect.Value
-}
-type stringRvSlice []stringRv
-type bytesRv struct {
-	v []byte
-	r reflect.Value
-}
-type bytesRvSlice []bytesRv
-
-func (p intRvSlice) Len() int           { return len(p) }
-func (p intRvSlice) Less(i, j int) bool { return p[i].v < p[j].v }
-func (p intRvSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (p uintRvSlice) Len() int           { return len(p) }
-func (p uintRvSlice) Less(i, j int) bool { return p[i].v < p[j].v }
-func (p uintRvSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (p floatRvSlice) Len() int { return len(p) }
-func (p floatRvSlice) Less(i, j int) bool {
-	return p[i].v < p[j].v || isNaN(p[i].v) && !isNaN(p[j].v)
-}
-func (p floatRvSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-
-func (p stringRvSlice) Len() int           { return len(p) }
-func (p stringRvSlice) Less(i, j int) bool { return p[i].v < p[j].v }
-func (p stringRvSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (p bytesRvSlice) Len() int           { return len(p) }
-func (p bytesRvSlice) Less(i, j int) bool { return bytes.Compare(p[i].v, p[j].v) == -1 }
-func (p bytesRvSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (p boolRvSlice) Len() int           { return len(p) }
-func (p boolRvSlice) Less(i, j int) bool { return !p[i].v && p[j].v }
-func (p boolRvSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-// -----------------
-
-type bytesI struct {
-	v []byte
-	i interface{}
-}
-
-type bytesISlice []bytesI
-
-func (p bytesISlice) Len() int           { return len(p) }
-func (p bytesISlice) Less(i, j int) bool { return bytes.Compare(p[i].v, p[j].v) == -1 }
-func (p bytesISlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }

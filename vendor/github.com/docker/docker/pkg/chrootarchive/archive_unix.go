@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"syscall"
@@ -80,11 +79,6 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 	w.Close()
 
 	if err := cmd.Wait(); err != nil {
-		// when `xz -d -c -q | docker-untar ...` failed on docker-untar side,
-		// we need to exhaust `xz`'s output, otherwise the `xz` side will be
-		// pending on write pipe forever
-		io.Copy(ioutil.Discard, decompressedArchive)
-
 		return fmt.Errorf("Untar re-exec error: %v: output: %s", err, output)
 	}
 	return nil

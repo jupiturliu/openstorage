@@ -8,9 +8,7 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-
 	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/docker/pkg/idtools"
 )
 
 // FsMagic unsigned id of the filesystem in use.
@@ -36,7 +34,7 @@ var (
 )
 
 // InitFunc initializes the storage driver.
-type InitFunc func(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error)
+type InitFunc func(root string, options []string) (Driver, error)
 
 // ProtoDriver defines the basic capabilities of a driver.
 // This interface exists solely to be a minimum set of methods
@@ -109,9 +107,9 @@ func Register(name string, initFunc InitFunc) error {
 }
 
 // GetDriver initializes and returns the registered driver
-func GetDriver(name, home string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error) {
+func GetDriver(name, home string, options []string) (Driver, error) {
 	if initFunc, exists := drivers[name]; exists {
-		return initFunc(filepath.Join(home, name), options, uidMaps, gidMaps)
+		return initFunc(filepath.Join(home, name), options)
 	}
 	if pluginDriver, err := lookupPlugin(name, home, options); err == nil {
 		return pluginDriver, nil
@@ -120,21 +118,12 @@ func GetDriver(name, home string, options []string, uidMaps, gidMaps []idtools.I
 	return nil, ErrNotSupported
 }
 
-// getBuiltinDriver initalizes and returns the registered driver, but does not try to load from plugins
-func getBuiltinDriver(name, home string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error) {
-	if initFunc, exists := drivers[name]; exists {
-		return initFunc(filepath.Join(home, name), options, uidMaps, gidMaps)
-	}
-	logrus.Errorf("Failed to built-in GetDriver graph %s %s", name, home)
-	return nil, ErrNotSupported
-}
-
 // New creates the driver and initializes it at the specified root.
-func New(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (driver Driver, err error) {
+func New(root string, options []string) (driver Driver, err error) {
 	for _, name := range []string{os.Getenv("DOCKER_DRIVER"), DefaultDriver} {
 		if name != "" {
 			logrus.Debugf("[graphdriver] trying provided driver %q", name) // so the logs show specified driver
-			return GetDriver(name, root, options, uidMaps, gidMaps)
+			return GetDriver(name, root, options)
 		}
 	}
 
@@ -149,7 +138,7 @@ func New(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (drive
 			// of the state found from prior drivers, check in order of our priority
 			// which we would prefer
 			if prior == name {
-				driver, err = getBuiltinDriver(name, root, options, uidMaps, gidMaps)
+				driver, err = GetDriver(name, root, options)
 				if err != nil {
 					// unlike below, we will return error here, because there is prior
 					// state, and now it is no longer supported/prereq/compatible, so
@@ -169,7 +158,7 @@ func New(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (drive
 
 	// Check for priority drivers first
 	for _, name := range priority {
-		driver, err = getBuiltinDriver(name, root, options, uidMaps, gidMaps)
+		driver, err = GetDriver(name, root, options)
 		if err != nil {
 			if err == ErrNotSupported || err == ErrPrerequisites || err == ErrIncompatibleFS {
 				continue
@@ -181,7 +170,7 @@ func New(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (drive
 
 	// Check all registered drivers if no priority driver is found
 	for _, initFunc := range drivers {
-		if driver, err = initFunc(root, options, uidMaps, gidMaps); err != nil {
+		if driver, err = initFunc(root, options); err != nil {
 			if err == ErrNotSupported || err == ErrPrerequisites || err == ErrIncompatibleFS {
 				continue
 			}

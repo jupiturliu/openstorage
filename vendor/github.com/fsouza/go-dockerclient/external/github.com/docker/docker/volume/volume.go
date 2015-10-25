@@ -9,7 +9,7 @@ type Driver interface {
 	// Name returns the name of the volume driver.
 	Name() string
 	// Create makes a new volume with the given id.
-	Create(name string, opts map[string]string) (Volume, error)
+	Create(string) (Volume, error)
 	// Remove deletes the volume.
 	Remove(Volume) error
 }
@@ -49,13 +49,13 @@ var roModes = map[string]bool{
 	"Z,ro": true,
 }
 
-// ValidMountMode will make sure the mount mode is valid.
-// returns if it's a valid mount mode or not.
-func ValidMountMode(mode string) bool {
-	return roModes[mode] || rwModes[mode]
+// ValidateMountMode will make sure the mount mode is valid.
+// returns if it's a valid mount mode and if it's read-write or not.
+func ValidateMountMode(mode string) (bool, bool) {
+	return roModes[mode] || rwModes[mode], rwModes[mode]
 }
 
-// ReadWrite tells you if a mode string is a valid read-write mode or not.
+// ReadWrite tells you if a mode string is a valid read-only mode or not.
 func ReadWrite(mode string) bool {
 	return rwModes[mode]
 }

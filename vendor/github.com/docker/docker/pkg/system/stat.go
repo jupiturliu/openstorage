@@ -27,8 +27,8 @@ func (s StatT) UID() uint32 {
 	return s.uid
 }
 
-// GID returns file's group id of owner.
-func (s StatT) GID() uint32 {
+// Gid returns file's group id of owner.
+func (s StatT) Gid() uint32 {
 	return s.gid
 }
 

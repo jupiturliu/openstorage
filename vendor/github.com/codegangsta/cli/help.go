@@ -186,27 +186,21 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 }
 
 func checkVersion(c *Context) bool {
-	found := false
-	if VersionFlag.Name != "" {
-		eachName(VersionFlag.Name, func(name string) {
-			if c.GlobalBool(name) || c.Bool(name) {
-				found = true
-			}
-		})
+	if c.GlobalBool("version") || c.GlobalBool("v") || c.Bool("version") || c.Bool("v") {
+		ShowVersion(c)
+		return true
 	}
-	return found
+
+	return false
 }
 
 func checkHelp(c *Context) bool {
-	found := false
-	if HelpFlag.Name != "" {
-		eachName(HelpFlag.Name, func(name string) {
-			if c.GlobalBool(name) || c.Bool(name) {
-				found = true
-			}
-		})
+	if c.GlobalBool("h") || c.GlobalBool("help") || c.Bool("h") || c.Bool("help") {
+		ShowAppHelp(c)
+		return true
 	}
-	return found
+
+	return false
 }
 
 func checkCommandHelp(c *Context, name string) bool {

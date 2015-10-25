@@ -1,8 +1,6 @@
 package archive
 
 import (
-	"os"
-
 	"github.com/docker/docker/pkg/system"
 )
 
@@ -19,12 +17,4 @@ func statDifferent(oldStat *system.StatT, newStat *system.StatT) bool {
 
 func (info *FileInfo) isDir() bool {
 	return info.parent == nil || info.stat.IsDir()
-}
-
-func getIno(fi os.FileInfo) (inode uint64) {
-	return
-}
-
-func hasHardlinks(fi os.FileInfo) bool {
-	return false
 }
