@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/libopenstorage/openstorage/proto/openstorage"
-	"github.com/libopenstorage/openstorage/proto/openstorage/docker"
+	"github.com/libopenstorage/openstorage/proto/openstoragedocker"
 	"go.pedge.io/pkg/map"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
@@ -23,7 +23,7 @@ func newAPIServer(openstorageAPIClient openstorage.APIClient) *apiServer {
 	}
 }
 
-func (a *apiServer) VolumeCreate(ctx context.Context, request *openstorage_docker.VolumeCreateRequest) (response *openstorage_docker.VolumeCreateResponse, err error) {
+func (a *apiServer) VolumeCreate(ctx context.Context, request *openstoragedocker.VolumeCreateRequest) (response *openstoragedocker.VolumeCreateResponse, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	openstorageVolumeCreateRequest, err := toOpenstorageVolumeCreateRequest(request)
 	if err != nil {
@@ -34,7 +34,7 @@ func (a *apiServer) VolumeCreate(ctx context.Context, request *openstorage_docke
 	return toVolumeCreateResponse(err), nil
 }
 
-func toOpenstorageVolumeCreateRequest(request *openstorage_docker.VolumeCreateRequest) (*openstorage.VolumeCreateRequest, error) {
+func toOpenstorageVolumeCreateRequest(request *openstoragedocker.VolumeCreateRequest) (*openstorage.VolumeCreateRequest, error) {
 	openstorageVolumeLocator, err := toOpenstorageVolumeLocator(request)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func toOpenstorageVolumeCreateRequest(request *openstorage_docker.VolumeCreateRe
 	}, nil
 }
 
-func toOpenstorageVolumeLocator(request *openstorage_docker.VolumeCreateRequest) (*openstorage.VolumeLocator, error) {
+func toOpenstorageVolumeLocator(request *openstoragedocker.VolumeCreateRequest) (*openstorage.VolumeLocator, error) {
 	// TODO(pedge): what to do with labels? one idea is to
 	// have labels be any fields that do not map into something
 	// specific for VolumeLocator, VolumeSource, VolumeSpec,
@@ -64,7 +64,7 @@ func toOpenstorageVolumeLocator(request *openstorage_docker.VolumeCreateRequest)
 	}, nil
 }
 
-func toOpenstorageVolumeSource(request *openstorage_docker.VolumeCreateRequest) (*openstorage.VolumeSource, error) {
+func toOpenstorageVolumeSource(request *openstoragedocker.VolumeCreateRequest) (*openstorage.VolumeSource, error) {
 	openstorageVolumeSource := &openstorage.VolumeSource{}
 	if len(request.Opts) == 0 {
 		return openstorageVolumeSource, nil
@@ -83,7 +83,7 @@ func toOpenstorageVolumeSource(request *openstorage_docker.VolumeCreateRequest) 
 	return openstorageVolumeSource, nil
 }
 
-func toOpenstorageVolumeSpec(request *openstorage_docker.VolumeCreateRequest) (*openstorage.VolumeSpec, error) {
+func toOpenstorageVolumeSpec(request *openstoragedocker.VolumeCreateRequest) (*openstorage.VolumeSpec, error) {
 	openstorageVolumeSpec := &openstorage.VolumeSpec{}
 	if len(request.Opts) == 0 {
 		return openstorageVolumeSpec, nil
@@ -143,8 +143,8 @@ func toOpenstorageVolumeSpec(request *openstorage_docker.VolumeCreateRequest) (*
 	return openstorageVolumeSpec, nil
 }
 
-func toVolumeCreateResponse(err error) *openstorage_docker.VolumeCreateResponse {
-	volumeCreateResponse := &openstorage_docker.VolumeCreateResponse{}
+func toVolumeCreateResponse(err error) *openstoragedocker.VolumeCreateResponse {
+	volumeCreateResponse := &openstoragedocker.VolumeCreateResponse{}
 	if err != nil {
 		volumeCreateResponse.Err = err.Error()
 	}

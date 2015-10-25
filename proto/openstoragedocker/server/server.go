@@ -4,9 +4,9 @@ package server
 
 import (
 	"github.com/libopenstorage/openstorage/proto/openstorage"
-	"github.com/libopenstorage/openstorage/proto/openstorage/docker"
+	"github.com/libopenstorage/openstorage/proto/openstoragedocker"
 )
 
-func NewAPIServer(openstorageAPIClient openstorage.APIClient) openstorage_docker.APIServer {
+func NewAPIServer(openstorageAPIClient openstorage.APIClient) openstoragedocker.APIServer {
 	return newAPIServer(openstorageAPIClient)
 }

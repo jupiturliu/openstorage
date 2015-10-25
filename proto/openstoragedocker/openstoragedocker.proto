@@ -6,6 +6,7 @@ import "google/api/annotations.proto";
 
 option java_multiple_files = true;
 option java_package = "com.openstorage.docker";
+option go_package = "openstoragedocker";
 
 message VolumeCreateRequest {
   string name = 1;

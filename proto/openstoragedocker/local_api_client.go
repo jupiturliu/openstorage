@@ -1,4 +1,4 @@
-package openstorage_docker
+package openstoragedocker
 
 import (
 	"golang.org/x/net/context"
