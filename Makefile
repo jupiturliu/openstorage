@@ -6,7 +6,7 @@ ifeq ($(BUILD_TYPE),debug)
 BUILDFLAGS := -gcflags "-N -l"
 endif
 
-export GO15VENDOREXPERIMENT=1
+#export GO15VENDOREXPERIMENT=1
 
 all: test install
 

@@ -141,6 +141,7 @@ func (d *Driver) freeDevices() (string, string, error) {
 // mapCos translates a CoS specified in spec to a volume.
 func mapCos(cos openstorage.COS) (*int64, *string) {
 	volType := opsworks.VolumeTypeIo1
+	// TODO(pedge): we shouldn't do this anymore
 	if cos < 2 {
 		// General purpose SSDs don't have provisioned IOPS
 		volType = opsworks.VolumeTypeGp2
@@ -229,7 +230,7 @@ func (d *Driver) Create(
 	var snapID *string
 
 	// Spec size is in bytes, translate to GiB.
-	sz := int64(spec.Size / (1024 * 1024 * 1024))
+	sz := int64(spec.SizeBytes / (1024 * 1024 * 1024))
 	iops, volType := mapCos(spec.Cos)
 	if source != nil && source.ParentVolumeId != "" {
 		id := source.ParentVolumeId
@@ -260,7 +261,7 @@ func (d *Driver) Create(
 		Spec:     spec,
 		Source:   source,
 		LastScan: time.Now(),
-		Format:   "none",
+		Format:   openstorage.FSType_FS_TYPE_NONE,
 		State:    api.VolumeAvailable,
 		Status:   api.Up,
 	}
@@ -460,7 +461,7 @@ func (d *Driver) Delete(volumeID string) error {
 	return nil
 }
 
-func (d *Driver) Snapshot(volumeID string, readonly bool, locator api.VolumeLocator) (string, error) {
+func (d *Driver) Snapshot(volumeID string, readonly bool, locator *openstorage.VolumeLocator) (string, error) {
 	dryRun := false
 	vols, err := d.DefaultEnumerator.Inspect([]string{volumeID})
 	if err != nil {
@@ -477,7 +478,7 @@ func (d *Driver) Snapshot(volumeID string, readonly bool, locator api.VolumeLoca
 	snap, err := d.ec2.CreateSnapshot(request)
 	chaos.Now(koStrayCreate)
 	vols[0].ID = *snap.SnapshotId
-	vols[0].Source = &api.Source{Parent: volumeID}
+	vols[0].Source = &openstorage.VolumeSource{ParentVolumeId: volumeID}
 	vols[0].Locator = locator
 	vols[0].Ctime = time.Now()
 
@@ -546,14 +547,15 @@ func (d *Driver) Format(volumeID string) error {
 	if err != nil {
 		return err
 	}
-	// TODO(pedge)
-	cmd := "/sbin/mkfs." + string(v.Spec.Format)
+	// TODO(pedge): could result in /sbin/mkfs.none
+	// TODO(pedge): don't hardcode location of mkfs? discuss
+	cmd := "/sbin/mkfs." + v.Spec.FsType.SimpleString()
 	o, err := exec.Command(cmd, devicePath).Output()
 	if err != nil {
 		log.Warnf("Failed to run command %v %v: %v", cmd, devicePath, o)
 		return err
 	}
-	v.Format = v.Spec.Format
+	v.Format = v.Spec.FsType
 	err = d.UpdateVol(v)
 	return err
 }
@@ -583,8 +585,8 @@ func (d *Driver) Mount(volumeID string, mountpath string) error {
 	if err != nil {
 		return err
 	}
-	// TODO(pedge)
-	err = syscall.Mount(devicePath, mountpath, string(v.Spec.Format), 0, "")
+	// TODO(pedge): could result in FSType simple string of "none"
+	err = syscall.Mount(devicePath, mountpath, v.Spec.FsType.SimpleString(), 0, "")
 	if err != nil {
 		return err
 	}
