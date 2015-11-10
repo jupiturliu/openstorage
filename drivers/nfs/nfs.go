@@ -415,7 +415,7 @@ func (d *driver) Set(volumeID string, locator *openstorage.VolumeLocator, spec *
 		return err
 	}
 	if locator != nil {
-		v.Locator = *locator
+		v.Locator = locator
 	}
 	err = d.UpdateVol(v)
 	return err

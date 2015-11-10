@@ -113,22 +113,22 @@ func inspect(t *testing.T, ctx *Context) {
 func set(t *testing.T, ctx *Context) {
 	fmt.Println("update")
 
-	vols, err := ctx.Inspect([]api.VolumeID{ctx.volID})
+	vols, err := ctx.Inspect([]string{ctx.volID})
 	assert.NoError(t, err, "Failed in Inspect")
 	assert.NotNil(t, vols, "Nil vols")
 	assert.Equal(t, len(vols), 1, "Expect 1 volume actual %v volumes", len(vols))
 	assert.Equal(t, vols[0].ID, ctx.volID, "Expect volID %v actual %v", ctx.volID, vols[0].ID)
 
-	vols[0].Locator.VolumeLabels["UpdateTest"] = "Success"
-	err = ctx.Set(ctx.volID, &vols[0].Locator, nil)
+	vols[0].Locator.Labels["UpdateTest"] = "Success"
+	err = ctx.Set(ctx.volID, vols[0].Locator, nil)
 	assert.NoError(t, err, "Failed in Update")
 
-	vols, err = ctx.Inspect([]api.VolumeID{ctx.volID})
+	vols, err = ctx.Inspect([]string{ctx.volID})
 	assert.NoError(t, err, "Failed in Inspect")
 	assert.NotNil(t, vols, "Nil vols")
 	assert.Equal(t, len(vols), 1, "Expect 1 volume actual %v volumes", len(vols))
-	assert.Equal(t, vols[0].Locator.VolumeLabels["UpdateTest"], "Success",
-		"Expect Label %v actual %v", "UpdateTest", vols[0].Locator.VolumeLabels)
+	assert.Equal(t, vols[0].Locator.Labels["UpdateTest"], "Success",
+		"Expect Label %v actual %v", "UpdateTest", vols[0].Locator.Labels)
 }
 
 func enumerate(t *testing.T, ctx *Context) {

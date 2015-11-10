@@ -127,7 +127,7 @@ func (vd *volApi) volumeSet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		resp.VolumeResponse.Error = err.Error()
 	} else {
-		v, err := d.Inspect([]api.VolumeID{volumeID})
+		v, err := d.Inspect([]string{volumeID})
 		if err != nil || v == nil || len(v) != 1 {
 			if err == nil {
 				err = fmt.Errorf("Failed to inspect volume")

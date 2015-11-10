@@ -15,8 +15,8 @@ import (
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/parsers"
 
-	"github.com/libopenstorage/openstorage/api"
 	"github.com/libopenstorage/openstorage/graph"
+	"github.com/libopenstorage/openstorage/proto/openstorage"
 	"github.com/libopenstorage/openstorage/volume"
 )
 
@@ -35,7 +35,7 @@ type Layer0Vol struct {
 	// path where the external volume is mounted.
 	path string
 	// volumeID mapping to this external volume
-	volumeID api.VolumeID
+	volumeID string
 	// ref keeps track of mount and unmounts.
 	ref int32
 }
@@ -150,7 +150,7 @@ func (l *Layer0) create(id, parent string) (string, *Layer0Vol, error) {
 	}
 
 	// Query volume for Layer 0
-	vols, err := l.volDriver.Enumerate(api.VolumeLocator{Name: vol.parent}, nil)
+	vols, err := l.volDriver.Enumerate(&openstorage.VolumeLocator{Name: vol.parent}, nil)
 
 	// If we don't find a volume configured for this image,
 	// then don't track layer0
