@@ -14,6 +14,7 @@ import (
 type osd struct {
 	ClusterConfig cluster.Config `yaml:"cluster"`
 	Drivers       map[string]volume.DriverParams
+	GraphDrivers  map[string]volume.DriverParams
 }
 
 type Config struct {
@@ -21,13 +22,14 @@ type Config struct {
 }
 
 const (
-	PluginAPIBase = "/run/docker/plugins/"
-	DriverAPIBase = "/var/lib/osd/driver/"
-	UrlKey        = "url"
-	VersionKey    = "version"
-	MountBase     = "/var/lib/osd/mounts/"
-	DataDir       = ".data"
-	Version       = "v1"
+	PluginAPIBase      = "/run/docker/plugins/"
+	DriverAPIBase      = "/var/lib/osd/driver/"
+	GraphDriverAPIBase = "/var/lib/osd/graphdriver/"
+	UrlKey             = "url"
+	VersionKey         = "version"
+	MountBase          = "/var/lib/osd/mounts/"
+	DataDir            = ".data"
+	Version            = "v1"
 )
 
 var (
@@ -50,4 +52,5 @@ func Parse(file string) (*Config, error) {
 }
 func init() {
 	os.MkdirAll(MountBase, 0755)
+	os.MkdirAll(GraphDriverAPIBase, 0755)
 }

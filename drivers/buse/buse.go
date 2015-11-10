@@ -23,7 +23,7 @@ import (
 
 const (
 	Name          = "buse"
-	Type          = volume.Block
+	Type          = api.Block | api.Graph
 	BuseDBKey     = "OpenStorageBuseKey"
 	BuseMountPath = "/var/lib/openstorage/buse/"
 )
@@ -114,11 +114,15 @@ func Init(params volume.DriverParams) (volume.VolumeDriver, error) {
 	return inst, nil
 }
 
+//
+// These functions below implement the volume driver interface.
+//
+
 func (d *driver) String() string {
 	return Name
 }
 
-func (d *driver) Type() volume.DriverType {
+func (d *driver) Type() api.DriverType {
 	return Type
 }
 
@@ -290,6 +294,21 @@ func (d *driver) Snapshot(volumeID string, readonly bool, locator *openstorage.V
 	}
 
 	return newVolumeID, nil
+}
+
+func (d *driver) Set(volumeID string, locator *openstorage.VolumeLocator, spec *openstorage.VolumeSpec) error {
+	if spec != nil {
+		return volume.ErrNotSupported
+	}
+	v, err := d.GetVol(volumeID)
+	if err != nil {
+		return err
+	}
+	if locator != nil {
+		v.Locator = *locator
+	}
+	err = d.UpdateVol(v)
+	return err
 }
 
 func (d *driver) Attach(volumeID string) (string, error) {

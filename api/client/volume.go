@@ -1,7 +1,11 @@
 package client
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
 
 	"github.com/libopenstorage/openstorage/api"
 	"github.com/libopenstorage/openstorage/proto/openstorage"
@@ -21,15 +25,108 @@ func (v *volumeClient) String() string {
 	return "VolumeDriver"
 }
 
-func (v *volumeClient) Type() volume.DriverType {
+func (v *volumeClient) Type() api.DriverType {
 	// Block drivers implement the superset.
-	return volume.Block
+	return api.Block
 }
 
 const (
+	graphPath  = "/graph"
 	volumePath = "/volumes"
 	snapPath   = "/snapshot"
 )
+
+func (v *volumeClient) GraphDriverCreate(id, parent string) error {
+	resp := ""
+	err := v.c.Put().Resource(graphPath + "/create").Instance(id).Do().Unmarshal(&resp)
+	if err != nil {
+		return err
+	}
+
+	if resp != id {
+		return fmt.Errorf("Invalid response: %v", resp)
+	}
+
+	return nil
+}
+
+func (v *volumeClient) GraphDriverRemove(id string) error {
+	resp := ""
+	err := v.c.Put().Resource(graphPath + "/remove").Instance(id).Do().Unmarshal(&resp)
+	if err != nil {
+		return err
+	}
+
+	if resp != id {
+		return fmt.Errorf("Invalid response: %v", resp)
+	}
+
+	return nil
+}
+
+func (v *volumeClient) GraphDriverGet(id, mountLabel string) (string, error) {
+	resp := ""
+	err := v.c.Get().Resource(graphPath + "/inspect").Instance(id).Do().Unmarshal(&resp)
+	if err != nil {
+		return "", err
+	}
+
+	return resp, nil
+}
+
+func (v *volumeClient) GraphDriverRelease(id string) error {
+	resp := ""
+	err := v.c.Put().Resource(graphPath + "/release").Instance(id).Do().Unmarshal(&resp)
+	if err != nil {
+		return err
+	}
+
+	if resp != id {
+		return fmt.Errorf("Invalid response: %v", resp)
+	}
+
+	return nil
+}
+
+func (v *volumeClient) GraphDriverExists(id string) bool {
+	resp := false
+	v.c.Get().Resource(graphPath + "/exists").Instance(id).Do().Unmarshal(&resp)
+	return resp
+}
+
+func (v *volumeClient) GraphDriverDiff(id, parent string) io.Writer {
+	path := graphPath + "/diff?id=" + id + "&parent=" + parent
+	resp := v.c.Get().Resource(path).Do()
+	return bytes.NewBuffer(resp.body)
+}
+
+func (v *volumeClient) GraphDriverChanges(id, parent string) ([]api.GraphDriverChanges, error) {
+	var changes []api.GraphDriverChanges
+	err := v.c.Get().Resource(graphPath + "/changes").Instance(id).Do().Unmarshal(&changes)
+	return changes, err
+}
+
+func (v *volumeClient) GraphDriverApplyDiff(id, parent string, diff io.Reader) (int, error) {
+	resp := 0
+	path := graphPath + "/diff?id=" + id + "&parent=" + parent
+
+	b, err := ioutil.ReadAll(diff)
+	if err != nil {
+		return 0, err
+	}
+
+	err = v.c.Put().Resource(path).Instance(id).Body(b).Do().Unmarshal(&resp)
+	if err != nil {
+		return 0, err
+	}
+	return resp, nil
+}
+
+func (v *volumeClient) GraphDriverDiffSize(id, parent string) (int, error) {
+	size := 0
+	err := v.c.Get().Resource(graphPath + "/diffsize").Instance(id).Do().Unmarshal(&size)
+	return size, err
+}
 
 // Create a new Vol for the specific volume spev.c.
 // It returns a system generated VolumeID that uniquely identifies the volume
@@ -80,7 +177,6 @@ func (v *volumeClient) Inspect(ids []string) ([]api.Volume, error) {
 // Delete volume.
 // Errors ErrEnoEnt, ErrVolHasSnaps may be returned.
 func (v *volumeClient) Delete(volumeID string) error {
-
 	var response api.VolumeResponse
 
 	err := v.c.Delete().Resource(volumePath).Instance(string(volumeID)).Do().Unmarshal(&response)
@@ -97,7 +193,6 @@ func (v *volumeClient) Delete(volumeID string) error {
 // calling this function.
 // Errors ErrEnoEnt may be returned
 func (v *volumeClient) Snapshot(volumeID string, readonly bool, locator *openstorage.VolumeLocator) (string, error) {
-
 	var response api.SnapCreateResponse
 	createReq := api.SnapCreateRequest{
 		ID:       volumeID,
@@ -181,71 +276,114 @@ func (v *volumeClient) SnapEnumerate(ids []string, snapLabels map[string]string)
 // Attach map device to the host.
 // On success the devicePath specifies location where the device is exported
 // Errors ErrEnoEnt, ErrVolAttached may be returned.
+<<<<<<< HEAD
 func (v *volumeClient) Attach(volumeID string) (string, error) {
 	var response api.VolumeStateResponse
+=======
+func (v *volumeClient) Attach(volumeID api.VolumeID) (string, error) {
+	var response api.VolumeSetResponse
+>>>>>>> master
 
-	req := api.VolumeStateAction{
-		Attach: api.ParamOn,
+	req := api.VolumeSetRequest{
+		Action: &api.VolumeStateAction{Attach: api.ParamOn},
 	}
 	err := v.c.Put().Resource(volumePath).Instance(volumeID).Body(&req).Do().Unmarshal(&response)
 	if err != nil {
 		return "", err
 	}
-	if response.Error != "" {
-		return "", errors.New(response.Error)
+	if response.VolumeResponse.Error != "" {
+		return "", errors.New(response.VolumeResponse.Error)
 	}
 	return response.DevicePath, nil
 }
 
 // Detach device from the host.
 // Errors ErrEnoEnt, ErrVolDetached may be returned.
+<<<<<<< HEAD
 func (v *volumeClient) Detach(volumeID string) error {
 	var response api.VolumeStateResponse
 	req := api.VolumeStateAction{
 		Attach: api.ParamOff,
+=======
+func (v *volumeClient) Detach(volumeID api.VolumeID) error {
+	var response api.VolumeSetResponse
+	req := api.VolumeSetRequest{
+		Action: &api.VolumeStateAction{Attach: api.ParamOff},
+>>>>>>> master
 	}
 	err := v.c.Put().Resource(volumePath).Instance(volumeID).Body(&req).Do().Unmarshal(&response)
 	if err != nil {
 		return err
 	}
-	if response.Error != "" {
-		return errors.New(response.Error)
+	if response.VolumeResponse.Error != "" {
+		return errors.New(response.VolumeResponse.Error)
 	}
 	return nil
 }
 
 // Mount volume at specified path
 // Errors ErrEnoEnt, ErrVolDetached may be returned.
+<<<<<<< HEAD
 func (v *volumeClient) Mount(volumeID string, mountpath string) error {
 	var response api.VolumeStateResponse
 	req := api.VolumeStateAction{
 		Mount:     api.ParamOn,
 		MountPath: mountpath,
+=======
+func (v *volumeClient) Mount(volumeID api.VolumeID, mountpath string) error {
+	var response api.VolumeSetResponse
+	req := api.VolumeSetRequest{
+		Action: &api.VolumeStateAction{Mount: api.ParamOn, MountPath: mountpath},
+>>>>>>> master
 	}
 	err := v.c.Put().Resource(volumePath).Instance(volumeID).Body(&req).Do().Unmarshal(&response)
 	if err != nil {
 		return err
 	}
-	if response.Error != "" {
-		return errors.New(response.Error)
+	if response.VolumeResponse.Error != "" {
+		return errors.New(response.VolumeResponse.Error)
 	}
 	return nil
 }
 
 // Unmount volume at specified path
 // Errors ErrEnoEnt, ErrVolDetached may be returned.
+<<<<<<< HEAD
 func (v *volumeClient) Unmount(volumeID string, mountpath string) error {
 	var response api.VolumeStateResponse
 	req := api.VolumeStateAction{
 		Mount:     api.ParamOff,
 		MountPath: mountpath,
+=======
+func (v *volumeClient) Unmount(volumeID api.VolumeID, mountpath string) error {
+	var response api.VolumeSetResponse
+	req := api.VolumeSetRequest{
+		Action: &api.VolumeStateAction{Mount: api.ParamOff, MountPath: mountpath},
+>>>>>>> master
 	}
 	err := v.c.Put().Resource(volumePath).Instance(volumeID).Body(&req).Do().Unmarshal(&response)
 	if err != nil {
 		return err
 	}
-	if response.Error != "" {
-		return errors.New(response.Error)
+	if response.VolumeResponse.Error != "" {
+		return errors.New(response.VolumeResponse.Error)
+	}
+	return nil
+}
+
+// Update volume
+func (v *volumeClient) Set(volumeID api.VolumeID, locator *api.VolumeLocator, spec *api.VolumeSpec) error {
+	var response api.VolumeSetResponse
+	req := api.VolumeSetRequest{
+		Locator: locator,
+		Spec:    spec,
+	}
+	err := v.c.Put().Resource(volumePath).Instance(string(volumeID)).Body(&req).Do().Unmarshal(&response)
+	if err != nil {
+		return err
+	}
+	if response.VolumeResponse.Error != "" {
+		return errors.New(response.VolumeResponse.Error)
 	}
 	return nil
 }

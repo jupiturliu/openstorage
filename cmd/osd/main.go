@@ -7,17 +7,21 @@ import (
 	"runtime"
 
 	"github.com/codegangsta/cli"
+	"github.com/docker/docker/pkg/reexec"
 	"github.com/fsouza/go-dockerclient"
 
 	"github.com/portworx/kvdb"
 	"github.com/portworx/kvdb/etcd"
 	"github.com/portworx/kvdb/mem"
 
+	"github.com/libopenstorage/openstorage/api"
 	apiserver "github.com/libopenstorage/openstorage/api/server"
 	osdcli "github.com/libopenstorage/openstorage/cli"
 	"github.com/libopenstorage/openstorage/cluster"
 	"github.com/libopenstorage/openstorage/config"
 	"github.com/libopenstorage/openstorage/drivers"
+	_ "github.com/libopenstorage/openstorage/graph/layer0"
+	_ "github.com/libopenstorage/openstorage/graph/proxy"
 	"github.com/libopenstorage/openstorage/volume"
 )
 
@@ -81,10 +85,24 @@ func start(c *cli.Context) {
 			fmt.Println("Unable to start volume driver: ", d, err)
 			return
 		}
-
 		err = apiserver.StartServerAPI(d, 0, config.DriverAPIBase)
 		if err != nil {
 			fmt.Println("Unable to start volume driver: ", err)
+			return
+		}
+		err = apiserver.StartPluginAPI(d, config.PluginAPIBase)
+		if err != nil {
+			fmt.Println("Unable to start volume plugin: ", err)
+			return
+		}
+	}
+
+	// Start the graph drivers.
+	for d, _ := range cfg.Osd.GraphDrivers {
+		fmt.Println("Starting graph driver: ", d)
+		err = apiserver.StartGraphAPI(d, 0, config.PluginAPIBase)
+		if err != nil {
+			fmt.Println("Unable to start graph plugin: ", err)
 			return
 		}
 	}
@@ -109,6 +127,9 @@ func showVersion(c *cli.Context) {
 }
 
 func main() {
+	if reexec.Init() {
+		return
+	}
 	app := cli.NewApp()
 	app.Name = "osd"
 	app.Usage = "Open Storage CLI"
@@ -155,9 +176,9 @@ func main() {
 		},
 	}
 
+	// Start all drivers.
 	for _, v := range drivers.AllDrivers {
-		switch v.DriverType {
-		case volume.Block:
+		if v.DriverType&api.Block == api.Block {
 			bCmds := osdcli.BlockVolumeCommands(v.Name)
 			clstrCmds := osdcli.ClusterCommands(v.Name)
 			cmds := append(bCmds, clstrCmds...)
@@ -167,7 +188,7 @@ func main() {
 				Subcommands: cmds,
 			}
 			app.Commands = append(app.Commands, c)
-		case volume.File:
+		} else if v.DriverType&api.File == api.File {
 			fCmds := osdcli.FileVolumeCommands(v.Name)
 			clstrCmds := osdcli.ClusterCommands(v.Name)
 			cmds := append(fCmds, clstrCmds...)
@@ -177,10 +198,12 @@ func main() {
 				Subcommands: cmds,
 			}
 			app.Commands = append(app.Commands, c)
-		default:
-			fmt.Println("Unable to start volume plugin: ", fmt.Errorf("Unknown driver type: %v", v.DriverType))
-			return
+		}
+
+		if v.DriverType&api.Graph == api.Graph {
+			// TODO - register this as a graph driver with Docker.
 		}
 	}
+
 	app.Run(os.Args)
 }

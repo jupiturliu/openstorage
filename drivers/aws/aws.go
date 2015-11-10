@@ -28,7 +28,7 @@ import (
 
 const (
 	Name     = "aws"
-	Type     = volume.Block
+	Type     = api.Block
 	AwsDBKey = "OpenStorageAWSKey"
 )
 
@@ -211,7 +211,7 @@ func (d *Driver) String() string {
 }
 
 // Type returns aws as a Block driver.
-func (d *Driver) Type() volume.DriverType {
+func (d *Driver) Type() api.DriverType {
 	return Type
 }
 
@@ -601,6 +601,10 @@ func (d *Driver) Unmount(volumeID string, mountpath string) error {
 
 func (d *Driver) Shutdown() {
 	log.Printf("%s Shutting down", Name)
+}
+
+func (d *Driver) Set(volumeID string, locator *openstorage.VolumeLocator, spec *openstorage.VolumeSpec) error {
+	return volume.ErrNotSupported
 }
 
 func init() {

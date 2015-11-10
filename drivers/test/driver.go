@@ -46,6 +46,7 @@ func NewContext(d volume.VolumeDriver) *Context {
 func RunShort(t *testing.T, ctx *Context) {
 	create(t, ctx)
 	inspect(t, ctx)
+	set(t, ctx)
 	enumerate(t, ctx)
 	attach(t, ctx)
 	mount(t, ctx)
@@ -84,7 +85,7 @@ func create(t *testing.T, ctx *Context) {
 	fsType, err := openstorage.FSTypeSimpleValueOf(ctx.Filesystem)
 	assert.NoError(t, err)
 	volID, err := ctx.Create(
-		&openstorage.VolumeLocator{Name: "foo"},
+		&openstorage.VolumeLocator{Name: "foo", Labels: map[string]string{"oh": "create"}},
 		nil,
 		&openstorage.VolumeSpec{
 			SizeBytes: 1 * 1024 * 1024 * 1024,
@@ -107,6 +108,27 @@ func inspect(t *testing.T, ctx *Context) {
 
 	vols, err = ctx.Inspect([]string{"shouldNotExist"})
 	assert.Equal(t, 0, len(vols), "Expect 0 volume actual %v volumes", len(vols))
+}
+
+func set(t *testing.T, ctx *Context) {
+	fmt.Println("update")
+
+	vols, err := ctx.Inspect([]api.VolumeID{ctx.volID})
+	assert.NoError(t, err, "Failed in Inspect")
+	assert.NotNil(t, vols, "Nil vols")
+	assert.Equal(t, len(vols), 1, "Expect 1 volume actual %v volumes", len(vols))
+	assert.Equal(t, vols[0].ID, ctx.volID, "Expect volID %v actual %v", ctx.volID, vols[0].ID)
+
+	vols[0].Locator.VolumeLabels["UpdateTest"] = "Success"
+	err = ctx.Set(ctx.volID, &vols[0].Locator, nil)
+	assert.NoError(t, err, "Failed in Update")
+
+	vols, err = ctx.Inspect([]api.VolumeID{ctx.volID})
+	assert.NoError(t, err, "Failed in Inspect")
+	assert.NotNil(t, vols, "Nil vols")
+	assert.Equal(t, len(vols), 1, "Expect 1 volume actual %v volumes", len(vols))
+	assert.Equal(t, vols[0].Locator.VolumeLabels["UpdateTest"], "Success",
+		"Expect Label %v actual %v", "UpdateTest", vols[0].Locator.VolumeLabels)
 }
 
 func enumerate(t *testing.T, ctx *Context) {

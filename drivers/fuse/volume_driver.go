@@ -48,8 +48,8 @@ func (v *volumeDriver) String() string {
 	return v.name
 }
 
-func (v *volumeDriver) Type() volume.DriverType {
-	return volume.File
+func (v *volumeDriver) Type() api.DriverType {
+	return api.File
 }
 
 func (v *volumeDriver) Create(
@@ -131,6 +131,10 @@ func (v *volumeDriver) Unmount(volumeID string, mountpath string) error {
 	}
 	volume.AttachPath = ""
 	return v.UpdateVol(volume)
+}
+
+func (v *volumeDriver) Set(volumeID string, locator *openstorage.VolumeLocator, spec *openstorage.VolumeSpec) error {
+	return volume.ErrNotSupported
 }
 
 func (v *volumeDriver) Stats(volumeID string) (api.Stats, error) {

@@ -27,15 +27,6 @@ type DriverParams map[string]string
 
 type InitFunc func(params DriverParams) (VolumeDriver, error)
 
-type DriverType int
-
-const (
-	File = 1 << iota
-	Block
-	Object
-	Clustered
-)
-
 // VolumeDriver is the main interface to be implemented by any storage driver.
 // Every driver must at minimum implement the ProtoDriver sub interface.
 type VolumeDriver interface {
@@ -51,7 +42,7 @@ type ProtoDriver interface {
 	String() string
 
 	// Type of this driver
-	Type() DriverType
+	Type() api.DriverType
 
 	// Create a new Vol for the specific volume spec.
 	// It returns a system generated VolumeID that uniquely identifies the volume
@@ -72,6 +63,10 @@ type ProtoDriver interface {
 	// Unmount volume at specified path
 	// Errors ErrEnoEnt, ErrVolDetached may be returned.
 	Unmount(volumeID string, mountpath string) error
+
+	// Update not all fields of the spec are supported, ErrNotSupported will be thrown for unsupported
+	// updates.
+	Set(volumeID string, locator *openstorage.VolumeLocator, spec *openstorage.VolumeSpec) error
 
 	// Snapshot create volume snapshot.
 	// Errors ErrEnoEnt may be returned

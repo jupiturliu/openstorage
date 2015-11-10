@@ -1,7 +1,7 @@
 package volume
 
 // DefaultBlockDriver is a default (null) block driver implementation.  This can be
-// used by drivers that do not want to (or care about) implement the attach,
+// used by drivers that do not want to (or care about) implementing the attach,
 // format and detach interfaces.
 type DefaultBlockDriver struct {
 }

@@ -18,7 +18,7 @@ import (
 
 const (
 	Name       = "vfs"
-	Type       = volume.File
+	Type       = api.File
 	volumeBase = "/var/lib/osd/"
 )
 
@@ -38,7 +38,7 @@ func (d *driver) String() string {
 	return Name
 }
 
-func (d *driver) Type() volume.DriverType {
+func (d *driver) Type() api.DriverType {
 	return Type
 }
 
@@ -140,6 +140,22 @@ func (d *driver) Unmount(volumeID string, mountpath string) error {
 	v.AttachPath = ""
 	err = d.UpdateVol(v)
 	return nil
+}
+
+// Set update volume with specified parameters.
+func (d *driver) Set(volumeID string, locator *openstorage.VolumeLocator, spec *openstorage.VolumeSpec) error {
+	if spec != nil {
+		return volume.ErrNotSupported
+	}
+	v, err := d.GetVol(volumeID)
+	if err != nil {
+		return err
+	}
+	if locator != nil {
+		v.Locator = *locator
+	}
+	err = d.UpdateVol(v)
+	return err
 }
 
 // Stats Not Supported.

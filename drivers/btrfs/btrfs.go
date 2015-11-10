@@ -23,7 +23,7 @@ import (
 
 const (
 	Name      = "btrfs"
-	Type      = volume.File
+	Type      = api.File
 	RootParam = "home"
 	Volumes   = "volumes"
 )
@@ -46,7 +46,7 @@ func Init(params volume.DriverParams) (volume.VolumeDriver, error) {
 		return nil, fmt.Errorf("Root directory should be specified with key %q", RootParam)
 	}
 	home := path.Join(root, Volumes)
-	d, err := btrfs.Init(home, nil)
+	d, err := btrfs.Init(home, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (d *driver) Status() [][2]string {
 	return d.btrfs.Status()
 }
 
-func (d *driver) Type() volume.DriverType {
+func (d *driver) Type() api.DriverType {
 	return Type
 }
 
@@ -156,6 +156,21 @@ func (d *driver) Unmount(volumeID string, mountpath string) error {
 		return err
 	}
 	v.AttachPath = ""
+	err = d.UpdateVol(v)
+	return err
+}
+
+func (d *driver) Set(volumeID string, locator *openstorage.VolumeLocator, spec *openstorage.VolumeSpec) error {
+	if spec != nil {
+		return volume.ErrNotSupported
+	}
+	v, err := d.GetVol(volumeID)
+	if err != nil {
+		return err
+	}
+	if locator != nil {
+		v.Locator = *locator
+	}
 	err = d.UpdateVol(v)
 	return err
 }

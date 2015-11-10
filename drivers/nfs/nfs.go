@@ -25,7 +25,7 @@ import (
 
 const (
 	Name         = "nfs"
-	Type         = volume.File
+	Type         = api.File
 	NfsDBKey     = "OpenStorageNFSKey"
 	nfsMountPath = "/var/lib/openstorage/nfs/"
 	nfsBlockFile = ".blockdevice"
@@ -182,7 +182,7 @@ func (d *driver) String() string {
 	return Name
 }
 
-func (d *driver) Type() volume.DriverType {
+func (d *driver) Type() api.DriverType {
 	return Type
 }
 
@@ -190,6 +190,64 @@ func (d *driver) Type() volume.DriverType {
 func (d *driver) Status() [][2]string {
 	return [][2]string{}
 }
+
+//
+// These functions below implement the graph driver interface.
+//
+
+// Create a new, empty, filesystem layer with the specified ID and Parent. Parent may be an empty string,
+// which would indicate that there is no parent layer.
+func (d *driver) GraphDriverCreate(id, parent string) error {
+	return nil
+}
+
+// Remove the filesystem layer with this given ID.
+func (d *driver) GraphDriverRemove(id string) error {
+	return nil
+}
+
+// Get the mountpoint for the layered filesystem referred to by the given ID.
+func (d *driver) GraphDriverGet(id, mountLabel string) (string, error) {
+	return "", nil
+}
+
+// Release the system resources for the specified ID,
+// such as unmounting the filesystem layer.
+func (d *driver) GraphDriverRelease(id string) error {
+	return nil
+}
+
+// Determine if a filesystem layer with the specified ID exists.
+func (d *driver) GraphDriverExists(id string) bool {
+	return false
+}
+
+// Get an archive of the changes between the filesystem layers specified by the ID
+// and Parent. Parent may be an empty string, in which case there is no parent.
+func (d *driver) GraphDriverDiff(id, parent string) io.Writer {
+	return nil
+}
+
+// Get a list of changes between the filesystem layers specified by the ID and Parent.
+// Parent may be an empty string, in which case there is no parent.
+func (d *driver) GraphDriverChanges(id, parent string) ([]api.GraphDriverChanges, error) {
+	changes := make([]api.GraphDriverChanges, 0)
+	return changes, nil
+}
+
+// Extract the changeset from the given diff into the layer with the specified ID and Parent
+func (d *driver) GraphDriverApplyDiff(id, parent string, diff io.Reader) (int, error) {
+	return 0, nil
+}
+
+// Calculate the changes between the specified ID
+func (d *driver) GraphDriverDiffSize(id, parent string) (int, error) {
+	return 0, nil
+}
+
+//
+// These functions below implement the volume driver interface.
+//
 
 func (d *driver) Create(locator *openstorage.VolumeLocator, source *openstorage.VolumeSource, spec *openstorage.VolumeSpec) (string, error) {
 	volumeID := uuid.New()
@@ -346,6 +404,21 @@ func (d *driver) Attach(volumeID string) (string, error) {
 
 func (d *driver) Detach(volumeID string) error {
 	return nil
+}
+
+func (d *driver) Set(volumeID string, locator *openstorage.VolumeLocator, spec *openstorage.VolumeSpec) error {
+	if spec != nil {
+		return volume.ErrNotSupported
+	}
+	v, err := d.GetVol(volumeID)
+	if err != nil {
+		return err
+	}
+	if locator != nil {
+		v.Locator = *locator
+	}
+	err = d.UpdateVol(v)
+	return err
 }
 
 func (d *driver) Stats(volumeID string) (api.Stats, error) {
