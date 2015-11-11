@@ -1,4 +1,4 @@
-package openstoragedocker
+package dockerapi
 
 // NewLocalAPIClient constructs an APIClient that directly calls the given APIServer.
 func NewLocalAPIClient(apiServer APIServer) APIClient {
