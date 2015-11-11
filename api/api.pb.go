@@ -193,58 +193,58 @@ func init() {
 var _ context.Context
 var _ grpc.ClientConn
 
-// Client API for API service
+// Client API for VolumeAPI service
 
-type APIClient interface {
+type VolumeAPIClient interface {
 	VolumeCreate(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error)
 }
 
-type aPIClient struct {
+type volumeAPIClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewAPIClient(cc *grpc.ClientConn) APIClient {
-	return &aPIClient{cc}
+func NewVolumeAPIClient(cc *grpc.ClientConn) VolumeAPIClient {
+	return &volumeAPIClient{cc}
 }
 
-func (c *aPIClient) VolumeCreate(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error) {
+func (c *volumeAPIClient) VolumeCreate(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error) {
 	out := new(VolumeCreateResponse)
-	err := grpc.Invoke(ctx, "/openstorage.api.API/VolumeCreate", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/openstorage.api.VolumeAPI/VolumeCreate", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for API service
+// Server API for VolumeAPI service
 
-type APIServer interface {
+type VolumeAPIServer interface {
 	VolumeCreate(context.Context, *VolumeCreateRequest) (*VolumeCreateResponse, error)
 }
 
-func RegisterAPIServer(s *grpc.Server, srv APIServer) {
-	s.RegisterService(&_API_serviceDesc, srv)
+func RegisterVolumeAPIServer(s *grpc.Server, srv VolumeAPIServer) {
+	s.RegisterService(&_VolumeAPI_serviceDesc, srv)
 }
 
-func _API_VolumeCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _VolumeAPI_VolumeCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(VolumeCreateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).VolumeCreate(ctx, in)
+	out, err := srv.(VolumeAPIServer).VolumeCreate(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-var _API_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "openstorage.api.API",
-	HandlerType: (*APIServer)(nil),
+var _VolumeAPI_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "openstorage.api.VolumeAPI",
+	HandlerType: (*VolumeAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "VolumeCreate",
-			Handler:    _API_VolumeCreate_Handler,
+			Handler:    _VolumeAPI_VolumeCreate_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},

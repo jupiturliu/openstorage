@@ -51,6 +51,30 @@ func (x Level) String() string {
 	return proto.EnumName(Level_name, int32(x))
 }
 
+// MessageType is the type of protolog message.
+type MessageType int32
+
+const (
+	MessageType_MESSAGE_TYPE_NONE    MessageType = 0
+	MessageType_MESSAGE_TYPE_EVENT   MessageType = 1
+	MessageType_MESSAGE_TYPE_CONTEXT MessageType = 2
+)
+
+var MessageType_name = map[int32]string{
+	0: "MESSAGE_TYPE_NONE",
+	1: "MESSAGE_TYPE_EVENT",
+	2: "MESSAGE_TYPE_CONTEXT",
+}
+var MessageType_value = map[string]int32{
+	"MESSAGE_TYPE_NONE":    0,
+	"MESSAGE_TYPE_EVENT":   1,
+	"MESSAGE_TYPE_CONTEXT": 2,
+}
+
+func (x MessageType) String() string {
+	return proto.EnumName(MessageType_name, int32(x))
+}
+
 // Fields is a generic context Message used for
 // the Logger functions WithField and WithFields.
 type Fields struct {
@@ -133,15 +157,25 @@ func (m *Entry_Message) Reset()         { *m = Entry_Message{} }
 func (m *Entry_Message) String() string { return proto.CompactTextString(m) }
 func (*Entry_Message) ProtoMessage()    {}
 
-var E_Protolog = &proto.ExtensionDesc{
+var E_Event = &proto.ExtensionDesc{
 	ExtendedType:  (*google_protobuf.MessageOptions)(nil),
 	ExtensionType: (*bool)(nil),
-	Field:         82295728,
-	Name:          "protolog.protolog",
-	Tag:           "varint,82295728,opt,name=protolog",
+	Field:         50009,
+	Name:          "protolog.event",
+	Tag:           "varint,50009,opt,name=event",
+}
+
+var E_Context = &proto.ExtensionDesc{
+	ExtendedType:  (*google_protobuf.MessageOptions)(nil),
+	ExtensionType: (*bool)(nil),
+	Field:         50010,
+	Name:          "protolog.context",
+	Tag:           "varint,50010,opt,name=context",
 }
 
 func init() {
 	proto.RegisterEnum("protolog.Level", Level_name, Level_value)
-	proto.RegisterExtension(E_Protolog)
+	proto.RegisterEnum("protolog.MessageType", MessageType_name, MessageType_value)
+	proto.RegisterExtension(E_Event)
+	proto.RegisterExtension(E_Context)
 }

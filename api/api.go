@@ -6,9 +6,9 @@ import (
 	"strings"
 )
 
-// NewLocalAPIClient constructs an APIClient that directly calls the given APIServer.
-func NewLocalAPIClient(apiServer APIServer) APIClient {
-	return newLocalAPIClient(apiServer)
+// NewLocalVolumeAPIClient constructs an VolumeAPIClient that directly calls the given VolumeAPIServer.
+func NewLocalVolumeAPIClient(apiServer VolumeAPIServer) VolumeAPIClient {
+	return newLocalVolumeAPIClient(apiServer)
 }
 
 func FSTypeSimpleValueOf(s string) (FSType, error) {

@@ -24,8 +24,8 @@ var _ = runtime.String
 var _ = json.Marshal
 var _ = utilities.PascalFromSnake
 
-func request_API_VolumeCreate_0(ctx context.Context, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
-	var protoReq VolumeCreateRequest
+func request_VolumeAPI_VolumeCreate_0(ctx context.Context, client VolumeAPIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq NameOptsRequest
 
 	if err := json.NewDecoder(req.Body).Decode(&protoReq); err != nil {
 		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
@@ -34,9 +34,49 @@ func request_API_VolumeCreate_0(ctx context.Context, client APIClient, req *http
 	return client.VolumeCreate(ctx, &protoReq)
 }
 
-// RegisterAPIHandlerFromEndpoint is same as RegisterAPIHandler but
+func request_VolumeAPI_VolumeRemove_0(ctx context.Context, client VolumeAPIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq NameRequest
+
+	if err := json.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.VolumeRemove(ctx, &protoReq)
+}
+
+func request_VolumeAPI_VolumePath_0(ctx context.Context, client VolumeAPIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq NameRequest
+
+	if err := json.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.VolumePath(ctx, &protoReq)
+}
+
+func request_VolumeAPI_VolumeMount_0(ctx context.Context, client VolumeAPIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq NameRequest
+
+	if err := json.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.VolumeMount(ctx, &protoReq)
+}
+
+func request_VolumeAPI_VolumeUnmount_0(ctx context.Context, client VolumeAPIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq NameRequest
+
+	if err := json.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.VolumeUnmount(ctx, &protoReq)
+}
+
+// RegisterVolumeAPIHandlerFromEndpoint is same as RegisterVolumeAPIHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterAPIHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string) (err error) {
+func RegisterVolumeAPIHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string) (err error) {
 	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 	if err != nil {
 		return err
@@ -56,22 +96,66 @@ func RegisterAPIHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, 
 		}()
 	}()
 
-	return RegisterAPIHandler(ctx, mux, conn)
+	return RegisterVolumeAPIHandler(ctx, mux, conn)
 }
 
-// RegisterAPIHandler registers the http handlers for service API to "mux".
+// RegisterVolumeAPIHandler registers the http handlers for service VolumeAPI to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	client := NewAPIClient(conn)
+func RegisterVolumeAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	client := NewVolumeAPIClient(conn)
 
-	mux.Handle("POST", pattern_API_VolumeCreate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		resp, err := request_API_VolumeCreate_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+	mux.Handle("POST", pattern_VolumeAPI_VolumeCreate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_VolumeAPI_VolumeCreate_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
 		if err != nil {
 			runtime.HTTPError(ctx, w, err)
 			return
 		}
 
-		forward_API_VolumeCreate_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_VolumeAPI_VolumeCreate_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_VolumeAPI_VolumeRemove_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_VolumeAPI_VolumeRemove_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_VolumeAPI_VolumeRemove_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_VolumeAPI_VolumePath_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_VolumeAPI_VolumePath_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_VolumeAPI_VolumePath_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_VolumeAPI_VolumeMount_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_VolumeAPI_VolumeMount_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_VolumeAPI_VolumeMount_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_VolumeAPI_VolumeUnmount_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_VolumeAPI_VolumeUnmount_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_VolumeAPI_VolumeUnmount_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -79,9 +163,25 @@ func RegisterAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 }
 
 var (
-	pattern_API_VolumeCreate_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Create"}, ""))
+	pattern_VolumeAPI_VolumeCreate_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Create"}, ""))
+
+	pattern_VolumeAPI_VolumeRemove_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Remove"}, ""))
+
+	pattern_VolumeAPI_VolumePath_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Path"}, ""))
+
+	pattern_VolumeAPI_VolumeMount_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Mount"}, ""))
+
+	pattern_VolumeAPI_VolumeUnmount_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Unmount"}, ""))
 )
 
 var (
-	forward_API_VolumeCreate_0 = runtime.ForwardResponseMessage
+	forward_VolumeAPI_VolumeCreate_0 = runtime.ForwardResponseMessage
+
+	forward_VolumeAPI_VolumeRemove_0 = runtime.ForwardResponseMessage
+
+	forward_VolumeAPI_VolumePath_0 = runtime.ForwardResponseMessage
+
+	forward_VolumeAPI_VolumeMount_0 = runtime.ForwardResponseMessage
+
+	forward_VolumeAPI_VolumeUnmount_0 = runtime.ForwardResponseMessage
 )

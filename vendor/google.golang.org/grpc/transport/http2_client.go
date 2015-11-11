@@ -383,6 +383,11 @@ func (t *http2Client) CloseStream(s *Stream, err error) {
 	if updateStreams {
 		t.streamsQuota.add(1)
 	}
+	// In case stream sending and receiving are invoked in separate
+	// goroutines (e.g., bi-directional streaming), the caller needs
+	// to call cancel on the stream to interrupt the blocking on
+	// other goroutines.
+	s.cancel()
 	s.mu.Lock()
 	if q := s.fc.restoreConn(); q > 0 {
 		t.controlBuf.put(&windowUpdate{0, q})
@@ -397,11 +402,6 @@ func (t *http2Client) CloseStream(s *Stream, err error) {
 	}
 	s.state = streamDone
 	s.mu.Unlock()
-	// In case stream sending and receiving are invoked in separate
-	// goroutines (e.g., bi-directional streaming), the caller needs
-	// to call cancel on the stream to interrupt the blocking on
-	// other goroutines.
-	s.cancel()
 	if _, ok := err.(StreamError); ok {
 		t.controlBuf.put(&resetStream{s.id, http2.ErrCodeCancel})
 	}
@@ -646,7 +646,9 @@ func (t *http2Client) handleSettings(f *http2.SettingsFrame) {
 }
 
 func (t *http2Client) handlePing(f *http2.PingFrame) {
-	t.controlBuf.put(&ping{true})
+	pingAck := &ping{ack: true}
+	copy(pingAck.data[:], f.Data[:])
+	t.controlBuf.put(pingAck)
 }
 
 func (t *http2Client) handleGoAway(f *http2.GoAwayFrame) {
@@ -827,9 +829,7 @@ func (t *http2Client) controller() {
 				case *flushIO:
 					t.framer.flushWrite()
 				case *ping:
-					// TODO(zhaoq): Ack with all-0 data now. will change to some
-					// meaningful content when this is actually in use.
-					t.framer.writePing(true, i.ack, [8]byte{})
+					t.framer.writePing(true, i.ack, i.data)
 				default:
 					grpclog.Printf("transport: http2Client.controller got unexpected item type %v\n", i)
 				}

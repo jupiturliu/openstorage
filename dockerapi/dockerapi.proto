@@ -8,19 +8,62 @@ option go_package = "dockerapi";
 option java_multiple_files = true;
 option java_package = "com.openstorage.docker";
 
-message VolumeCreateRequest {
+// NameOptsRequest is a request with a volume name and opts.
+message NameOptsRequest {
   string name = 1;
   map<string, string> opts = 2;
 }
 
-message VolumeCreateResponse {
-  string err = 1;  
+// NameRequest is a request with a volume name.
+message NameRequest {
+  string name = 1;
 }
 
-service API {
-  rpc VolumeCreate(VolumeCreateRequest) returns (VolumeCreateResponse) {
+// ErrResponse is a response for the docker volume plugin API with a potential error.
+message ErrResponse {
+  string err = 1;
+}
+
+// MountpointErrResponse is a response for the docker volume plugin API with a mountpoint and a potential error.
+message MountpointErrResponse {
+  string mountpoint = 1;
+  string err = 2;
+}
+
+// VolumeAPI is the API for the volume package.
+service VolumeAPI {
+  // Create is the create function call for the docker volume plugin API.
+  rpc VolumeCreate(NameOptsRequest) returns (ErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Create"
+      body: "*"
+    };
+  }
+  // Remove is the remove function call for the docker volume plugin API.
+  rpc VolumeRemove(NameRequest) returns (ErrResponse) {
+    option (google.api.http) = {
+      post: "/VolumeDriver.Remove"
+      body: "*"
+    };
+  }
+  // Path is the path function call for the docker volume plugin API.
+  rpc VolumePath(NameRequest) returns (MountpointErrResponse) {
+    option (google.api.http) = {
+      post: "/VolumeDriver.Path"
+      body: "*"
+    };
+  }
+  // Mount is the mount function call for the docker volume plugin API.
+  rpc VolumeMount(NameRequest) returns (MountpointErrResponse) {
+    option (google.api.http) = {
+      post: "/VolumeDriver.Mount"
+      body: "*"
+    };
+  }
+  // Unmount is the unmount function call for the docker volume plugin API.
+  rpc VolumeUnmount(NameRequest) returns (ErrResponse) {
+    option (google.api.http) = {
+      post: "/VolumeDriver.Unmount"
       body: "*"
     };
   }

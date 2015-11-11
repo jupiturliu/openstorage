@@ -8,21 +8,21 @@ package protolog;
 // Fields is a generic context Message used for
 // the Logger functions WithField and WithFields.
 message Fields {
-  option (protolog) = true;
+  option (context) = true;
   map<string, string> value = 1;
 }
 
 // Event is a generic event Message used for
 // the non-protobuf-specific Logger functions.
 message Event {
-  option (protolog) = true;
+  option (event) = true;
   string message = 1;
 }
 
 // WriterOutput is an event Message used for
 // the writer Logger functions.
 message WriterOutput {
-  option (protolog) = true;
+  option (event) = true;
   bytes value = 1;
 }
 
@@ -52,6 +52,14 @@ message Entry {
   Message event = 5;
 }
 
+// MessageType is the type of protolog message.
+enum MessageType {
+  MESSAGE_TYPE_NONE = 0;
+  MESSAGE_TYPE_EVENT = 1;
+  MESSAGE_TYPE_CONTEXT = 2;
+}
+
 extend google.protobuf.MessageOptions {
-  bool protolog = 82295728;
+  bool event = 50009;
+  bool context = 50010;
 }

@@ -1,6 +1,6 @@
 package dockerapi
 
-// NewLocalAPIClient constructs an APIClient that directly calls the given APIServer.
-func NewLocalAPIClient(apiServer APIServer) APIClient {
-	return newLocalAPIClient(apiServer)
+// NewLocalVolumeAPIClient constructs an VolumeAPIClient that directly calls the given VolumeAPIServer.
+func NewLocalVolumeAPIClient(volumeAPIServer VolumeAPIServer) VolumeAPIClient {
+	return newLocalVolumeAPIClient(volumeAPIServer)
 }

@@ -19,91 +19,232 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-type VolumeCreateRequest struct {
+// NameOptsRequest is a request with a volume name and opts.
+type NameOptsRequest struct {
 	Name string            `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	Opts map[string]string `protobuf:"bytes,2,rep,name=opts" json:"opts,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
-func (m *VolumeCreateRequest) Reset()         { *m = VolumeCreateRequest{} }
-func (m *VolumeCreateRequest) String() string { return proto.CompactTextString(m) }
-func (*VolumeCreateRequest) ProtoMessage()    {}
+func (m *NameOptsRequest) Reset()         { *m = NameOptsRequest{} }
+func (m *NameOptsRequest) String() string { return proto.CompactTextString(m) }
+func (*NameOptsRequest) ProtoMessage()    {}
 
-func (m *VolumeCreateRequest) GetOpts() map[string]string {
+func (m *NameOptsRequest) GetOpts() map[string]string {
 	if m != nil {
 		return m.Opts
 	}
 	return nil
 }
 
-type VolumeCreateResponse struct {
+// NameRequest is a request with a volume name.
+type NameRequest struct {
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+}
+
+func (m *NameRequest) Reset()         { *m = NameRequest{} }
+func (m *NameRequest) String() string { return proto.CompactTextString(m) }
+func (*NameRequest) ProtoMessage()    {}
+
+// ErrResponse is a response for the docker volume plugin API with a potential error.
+type ErrResponse struct {
 	Err string `protobuf:"bytes,1,opt,name=err" json:"err,omitempty"`
 }
 
-func (m *VolumeCreateResponse) Reset()         { *m = VolumeCreateResponse{} }
-func (m *VolumeCreateResponse) String() string { return proto.CompactTextString(m) }
-func (*VolumeCreateResponse) ProtoMessage()    {}
+func (m *ErrResponse) Reset()         { *m = ErrResponse{} }
+func (m *ErrResponse) String() string { return proto.CompactTextString(m) }
+func (*ErrResponse) ProtoMessage()    {}
+
+// MountpointErrResponse is a response for the docker volume plugin API with a mountpoint and a potential error.
+type MountpointErrResponse struct {
+	Mountpoint string `protobuf:"bytes,1,opt,name=mountpoint" json:"mountpoint,omitempty"`
+	Err        string `protobuf:"bytes,2,opt,name=err" json:"err,omitempty"`
+}
+
+func (m *MountpointErrResponse) Reset()         { *m = MountpointErrResponse{} }
+func (m *MountpointErrResponse) String() string { return proto.CompactTextString(m) }
+func (*MountpointErrResponse) ProtoMessage()    {}
 
 func init() {
-	proto.RegisterType((*VolumeCreateRequest)(nil), "openstorage.docker.api.VolumeCreateRequest")
-	proto.RegisterType((*VolumeCreateResponse)(nil), "openstorage.docker.api.VolumeCreateResponse")
+	proto.RegisterType((*NameOptsRequest)(nil), "openstorage.docker.api.NameOptsRequest")
+	proto.RegisterType((*NameRequest)(nil), "openstorage.docker.api.NameRequest")
+	proto.RegisterType((*ErrResponse)(nil), "openstorage.docker.api.ErrResponse")
+	proto.RegisterType((*MountpointErrResponse)(nil), "openstorage.docker.api.MountpointErrResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
 var _ grpc.ClientConn
 
-// Client API for API service
+// Client API for VolumeAPI service
 
-type APIClient interface {
-	VolumeCreate(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error)
+type VolumeAPIClient interface {
+	// Create is the create function call for the docker volume plugin API.
+	VolumeCreate(ctx context.Context, in *NameOptsRequest, opts ...grpc.CallOption) (*ErrResponse, error)
+	// Remove is the remove function call for the docker volume plugin API.
+	VolumeRemove(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*ErrResponse, error)
+	// Path is the path function call for the docker volume plugin API.
+	VolumePath(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*MountpointErrResponse, error)
+	// Mount is the mount function call for the docker volume plugin API.
+	VolumeMount(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*MountpointErrResponse, error)
+	// Unmount is the unmount function call for the docker volume plugin API.
+	VolumeUnmount(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*ErrResponse, error)
 }
 
-type aPIClient struct {
+type volumeAPIClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewAPIClient(cc *grpc.ClientConn) APIClient {
-	return &aPIClient{cc}
+func NewVolumeAPIClient(cc *grpc.ClientConn) VolumeAPIClient {
+	return &volumeAPIClient{cc}
 }
 
-func (c *aPIClient) VolumeCreate(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error) {
-	out := new(VolumeCreateResponse)
-	err := grpc.Invoke(ctx, "/openstorage.docker.api.API/VolumeCreate", in, out, c.cc, opts...)
+func (c *volumeAPIClient) VolumeCreate(ctx context.Context, in *NameOptsRequest, opts ...grpc.CallOption) (*ErrResponse, error) {
+	out := new(ErrResponse)
+	err := grpc.Invoke(ctx, "/openstorage.docker.api.VolumeAPI/VolumeCreate", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for API service
-
-type APIServer interface {
-	VolumeCreate(context.Context, *VolumeCreateRequest) (*VolumeCreateResponse, error)
+func (c *volumeAPIClient) VolumeRemove(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*ErrResponse, error) {
+	out := new(ErrResponse)
+	err := grpc.Invoke(ctx, "/openstorage.docker.api.VolumeAPI/VolumeRemove", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func RegisterAPIServer(s *grpc.Server, srv APIServer) {
-	s.RegisterService(&_API_serviceDesc, srv)
+func (c *volumeAPIClient) VolumePath(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*MountpointErrResponse, error) {
+	out := new(MountpointErrResponse)
+	err := grpc.Invoke(ctx, "/openstorage.docker.api.VolumeAPI/VolumePath", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func _API_VolumeCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(VolumeCreateRequest)
+func (c *volumeAPIClient) VolumeMount(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*MountpointErrResponse, error) {
+	out := new(MountpointErrResponse)
+	err := grpc.Invoke(ctx, "/openstorage.docker.api.VolumeAPI/VolumeMount", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *volumeAPIClient) VolumeUnmount(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*ErrResponse, error) {
+	out := new(ErrResponse)
+	err := grpc.Invoke(ctx, "/openstorage.docker.api.VolumeAPI/VolumeUnmount", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for VolumeAPI service
+
+type VolumeAPIServer interface {
+	// Create is the create function call for the docker volume plugin API.
+	VolumeCreate(context.Context, *NameOptsRequest) (*ErrResponse, error)
+	// Remove is the remove function call for the docker volume plugin API.
+	VolumeRemove(context.Context, *NameRequest) (*ErrResponse, error)
+	// Path is the path function call for the docker volume plugin API.
+	VolumePath(context.Context, *NameRequest) (*MountpointErrResponse, error)
+	// Mount is the mount function call for the docker volume plugin API.
+	VolumeMount(context.Context, *NameRequest) (*MountpointErrResponse, error)
+	// Unmount is the unmount function call for the docker volume plugin API.
+	VolumeUnmount(context.Context, *NameRequest) (*ErrResponse, error)
+}
+
+func RegisterVolumeAPIServer(s *grpc.Server, srv VolumeAPIServer) {
+	s.RegisterService(&_VolumeAPI_serviceDesc, srv)
+}
+
+func _VolumeAPI_VolumeCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(NameOptsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).VolumeCreate(ctx, in)
+	out, err := srv.(VolumeAPIServer).VolumeCreate(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-var _API_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "openstorage.docker.api.API",
-	HandlerType: (*APIServer)(nil),
+func _VolumeAPI_VolumeRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(NameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(VolumeAPIServer).VolumeRemove(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _VolumeAPI_VolumePath_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(NameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(VolumeAPIServer).VolumePath(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _VolumeAPI_VolumeMount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(NameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(VolumeAPIServer).VolumeMount(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _VolumeAPI_VolumeUnmount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(NameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(VolumeAPIServer).VolumeUnmount(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _VolumeAPI_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "openstorage.docker.api.VolumeAPI",
+	HandlerType: (*VolumeAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "VolumeCreate",
-			Handler:    _API_VolumeCreate_Handler,
+			Handler:    _VolumeAPI_VolumeCreate_Handler,
+		},
+		{
+			MethodName: "VolumeRemove",
+			Handler:    _VolumeAPI_VolumeRemove_Handler,
+		},
+		{
+			MethodName: "VolumePath",
+			Handler:    _VolumeAPI_VolumePath_Handler,
+		},
+		{
+			MethodName: "VolumeMount",
+			Handler:    _VolumeAPI_VolumeMount_Handler,
+		},
+		{
+			MethodName: "VolumeUnmount",
+			Handler:    _VolumeAPI_VolumeUnmount_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},
