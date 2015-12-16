@@ -29,6 +29,8 @@ vendor:
 	rm -f $$GOPATH/bin/godep
 	curl -sS -L https://github.com/tools/godep/releases/download/v32/godep_$(shell uname -s)_amd64 > $$GOPATH/bin/godep
 	chmod +x $$GOPATH/bin/godep
+	# NOTE: wiping away vendor should have nothing to do with how godep save works, assuming a restore was done first
+	rm -rf vendor
 	# TODO: when godep fixes downloading all tags, remove the custom package
 	# https://github.com/tools/godep/issues/271
 	godep save $(PKGS) github.com/docker/docker/pkg/chrootarchive github.com/stretchr/testify/require
